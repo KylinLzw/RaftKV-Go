@@ -57,9 +57,10 @@ func (reply *RequestVoteReply) String() string {
 }
 
 // RequestVote ：客户端 RPC 响应投票结果
-func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
+func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) error {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
+
 	LOG(rf.me, rf.currentTerm, DDebug, "<- S%d, VoteAsked, Args=%v", args.CandidateId, args.String())
 
 	reply.Term = rf.currentTerm
@@ -68,7 +69,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// align the term
 	if args.Term < rf.currentTerm {
 		LOG(rf.me, rf.currentTerm, DVote, "<- S%d, Reject voted, Higher term, T%d>T%d", args.CandidateId, rf.currentTerm, args.Term)
-		return
+		return nil
 	}
 	if args.Term > rf.currentTerm {
 		rf.becomeFollowerLocked(args.Term)
@@ -77,13 +78,13 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// check for votedFor
 	if rf.votedFor != -1 {
 		LOG(rf.me, rf.currentTerm, DVote, "<- S%d, Reject voted, Already voted to S%d", args.CandidateId, rf.votedFor)
-		return
+		return nil
 	}
 
 	// check if candidate's last log is more up to date
 	if rf.isMoreUpToDateLocked(args.LastLogIndex, args.LastLogTerm) {
 		LOG(rf.me, rf.currentTerm, DVote, "<- S%d, Reject voted, Candidate less up-to-date", args.CandidateId)
-		return
+		return nil
 	}
 
 	reply.VoteGranted = true
@@ -91,6 +92,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	rf.persistLocked()
 	rf.resetElectionTimerLocked()
 	LOG(rf.me, rf.currentTerm, DVote, "<- S%d, Vote granted", args.CandidateId)
+	return nil
 }
 
 // 发送 RPC 请求获取投票
@@ -136,6 +138,7 @@ func (rf *Raft) startElection(term int) {
 				rf.becomeLeaderLocked()
 				go rf.replicationTicker(term)
 			}
+
 		}
 	}
 

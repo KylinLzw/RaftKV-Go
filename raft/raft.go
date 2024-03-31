@@ -158,7 +158,7 @@ func Make(peers []*rpc.Client, me int,
 	rf.me = me
 
 	rf.role = Follower
-	rf.currentTerm = 1
+	rf.currentTerm = 0
 	rf.votedFor = -1
 
 	// a dummy entry to aovid lots of corner checks

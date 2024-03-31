@@ -50,7 +50,7 @@ func (reply *AppendEntriesReply) String() string {
 }
 
 // AppendEntries ： Follower节点回调函数
-func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
+func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) error {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	LOG(rf.me, rf.currentTerm, DDebug, "<- S%d, Appended, Args=%v", args.LeaderId, args.String())
@@ -61,7 +61,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	// align the term
 	if args.Term < rf.currentTerm {
 		LOG(rf.me, rf.currentTerm, DLog2, "<- S%d, Reject log, Higher term, T%d<T%d", args.LeaderId, args.Term, rf.currentTerm)
-		return
+		return nil
 	}
 	if args.Term >= rf.currentTerm {
 		rf.becomeFollowerLocked(args.Term)
@@ -80,19 +80,19 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		reply.ConfilictTerm = InvalidTerm
 		reply.ConfilictIndex = rf.log.size()
 		LOG(rf.me, rf.currentTerm, DLog2, "<- S%d, Reject log, Follower log too short, Len:%d < Prev:%d", args.LeaderId, rf.log.size(), args.PrevLogIndex)
-		return
+		return nil
 	}
 	if args.PrevLogIndex < rf.log.snapLastIdx {
 		reply.ConfilictTerm = rf.log.snapLastTerm
 		reply.ConfilictIndex = rf.log.snapLastIdx
 		LOG(rf.me, rf.currentTerm, DLog2, "<- S%d, Reject log, Follower log truncated in %d", args.LeaderId, rf.log.snapLastIdx)
-		return
+		return nil
 	}
 	if rf.log.at(args.PrevLogIndex).Term != args.PrevLogTerm {
 		reply.ConfilictTerm = rf.log.at(args.PrevLogIndex).Term
 		reply.ConfilictIndex = rf.log.firstFor(reply.ConfilictTerm)
 		LOG(rf.me, rf.currentTerm, DLog2, "<- S%d, Reject log, Prev log not match, [%d]: T%d != T%d", args.LeaderId, args.PrevLogIndex, rf.log.at(args.PrevLogIndex).Term, args.PrevLogTerm)
-		return
+		return nil
 	}
 
 	// append the leader log entries to local
@@ -107,7 +107,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		rf.commitIndex = args.LeaderCommit
 		rf.applyCond.Signal()
 	}
-
+	return nil
 }
 
 // 调用日志同步 RPC

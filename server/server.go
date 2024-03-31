@@ -12,6 +12,14 @@ import (
 	"time"
 )
 
+/*
+启动三个节点：
+  go run server.go -port 8000 -id 0
+  go run server.go -port 8001 -id 1
+  go run server.go -port 8002 -id 2
+*/
+
+// 服务节点信息
 var address = map[int]string{
 	0: "localhost:8000",
 	1: "localhost:8001",
@@ -22,18 +30,21 @@ var serverIp string
 var serverPort int
 var serverNum int
 
+// 默认节点信息
 func init() {
 	flag.StringVar(&serverIp, "ip", "127.0.0.1", "server的ip")
 	flag.IntVar(&serverPort, "port", 8000, "server的端口")
 	flag.IntVar(&serverNum, "id", 0, "该server在Raft组中的编号")
 }
 
-//启动一个服务端(接收client请求)
+// 启动一个服务端(接收client请求)
 func main() {
-	//解析参数
+
+	//解析命令行参数
 	flag.Parse()
 	persister := raft.MakePersister()
 	kvServer := kvraft.NewKVServer(serverNum, -1)
+
 	//在rpc中进行注册
 	err := rpc.RegisterName("KVServer", kvServer)
 	if err != nil {
@@ -51,8 +62,10 @@ func main() {
 	serverEnds := make([]*rpc.Client, len(address))
 	serverEnds[serverNum] = nil
 	delete(address, serverNum)
+
 	//启动http服务(为了rpc调用)
 	go http.Serve(listener, nil)
+
 	//等待其他节点上线
 	fmt.Println("等待其他节点上线")
 	for len(address) > 0 {

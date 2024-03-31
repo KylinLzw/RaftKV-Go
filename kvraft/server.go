@@ -53,15 +53,41 @@ func StartKVServer(servers []*rpc.Client, me int, persister *raft.Persister, max
 	return kv
 }
 
+func NewKVServer(me int, maxraftstate int) *KVServer {
+	gob.Register(Op{})
+	kv := new(KVServer)
+	kv.me = me
+	kv.maxraftstate = maxraftstate
+	kv.dead = 0
+	kv.lastApplied = 0
+	kv.applyCh = make(chan raft.ApplyMsg)
+	kv.stateMachine = NewMemoryKVStateMachine()
+	kv.notifyChans = make(map[int]chan *OpReply)
+	kv.duplicateTable = make(map[int64]LastOperationInfo)
+	return kv
+}
+
+func (kv *KVServer) StartServer(persister *raft.Persister, servers []*rpc.Client) {
+	kv.rf = raft.Make(servers, kv.me, persister, kv.applyCh)
+
+	rpc.RegisterName("Raft", kv.rf)
+	//从快照中恢复数据
+	kv.restoreFromSnapshot(persister.ReadSnapshot())
+	go kv.applyTask()
+	for !kv.killed() {
+		time.Sleep(5 * time.Second)
+	}
+}
+
 // Get :服务器响应Get请求
-func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
+func (kv *KVServer) Get(args *GetArgs, reply *GetReply) error {
 	// 调用 raft，将请求存储到 raft 日志中并进行同步
 	index, _, isLeader := kv.rf.Start(Op{Key: args.Key, OpType: OpGet})
 
 	// 如果不是 Leader 的话，直接返回错误
 	if !isLeader {
 		reply.Err = ErrWrongLeader
-		return
+		return nil
 	}
 
 	// 同步成功，等待响应结果
@@ -82,10 +108,12 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 		kv.removeNotifyChannel(index)
 		kv.mu.Unlock()
 	}()
+
+	return nil
 }
 
 // PutAppend :服务器响应 Put 和 Append 请求
-func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
+func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) error {
 	// 判断请求是否重复
 	kv.mu.Lock()
 	if kv.requestDuplicated(args.ClientId, args.SeqId) {
@@ -93,7 +121,7 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 		opReply := kv.duplicateTable[args.ClientId].Reply
 		reply.Err = opReply.Err
 		kv.mu.Unlock()
-		return
+		return nil
 	}
 	kv.mu.Unlock()
 
@@ -109,7 +137,7 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 	// 如果不是 Leader 的话，直接返回错误
 	if !isLeader {
 		reply.Err = ErrWrongLeader
-		return
+		return nil
 	}
 
 	// 等待结果
@@ -130,6 +158,8 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 		kv.removeNotifyChannel(index)
 		kv.mu.Unlock()
 	}()
+
+	return nil
 }
 
 // 处理 apply 任务
