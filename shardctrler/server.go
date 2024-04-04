@@ -40,6 +40,7 @@ func (sc *ShardCtrler) requestDuplicated(clientId, seqId int64) bool {
 	return ok && seqId <= info.SeqId
 }
 
+// Join ：PRC 添加 Group
 func (sc *ShardCtrler) Join(args *JoinArgs, reply *JoinReply) error {
 	var opReply OpReply
 	sc.command(Op{
@@ -53,6 +54,7 @@ func (sc *ShardCtrler) Join(args *JoinArgs, reply *JoinReply) error {
 	return nil
 }
 
+// Leave ：PRC 移除 Group
 func (sc *ShardCtrler) Leave(args *LeaveArgs, reply *LeaveReply) error {
 	var opReply OpReply
 	sc.command(Op{
@@ -66,6 +68,7 @@ func (sc *ShardCtrler) Leave(args *LeaveArgs, reply *LeaveReply) error {
 	return nil
 }
 
+// Move ：PRC 移动 Group
 func (sc *ShardCtrler) Move(args *MoveArgs, reply *MoveReply) error {
 	var opReply OpReply
 	sc.command(Op{
@@ -80,9 +83,9 @@ func (sc *ShardCtrler) Move(args *MoveArgs, reply *MoveReply) error {
 
 }
 
+// Query ：PRC 询问 Group 组信息
 func (sc *ShardCtrler) Query(args *QueryArgs, reply *QueryReply) error {
 	var opReply OpReply
-	print("111\n")
 	sc.command(Op{
 		OpType: OpQuery,
 		Num:    args.Num,

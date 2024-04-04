@@ -83,6 +83,7 @@ func (kv *ShardKV) fetchConfigTask() {
 	}
 }
 
+// 分片迁移
 func (kv *ShardKV) shardMigrationTask() {
 	for !kv.killed() {
 
@@ -117,6 +118,7 @@ func (kv *ShardKV) shardMigrationTask() {
 	}
 }
 
+// 分片清理
 func (kv *ShardKV) shardGCTask() {
 	for !kv.killed() {
 
@@ -199,6 +201,7 @@ func (kv *ShardKV) GetShardsData(args *ShardOperationArgs, reply *ShardOperation
 	return nil
 }
 
+// DeleteShardsData 删除分片数据
 func (kv *ShardKV) DeleteShardsData(args *ShardOperationArgs, reply *ShardOperationReply) error {
 	// 只需要从 Leader 获取数据
 	if _, isLeader := kv.rf.GetState(); !isLeader {
@@ -221,6 +224,7 @@ func (kv *ShardKV) DeleteShardsData(args *ShardOperationArgs, reply *ShardOperat
 	return nil
 }
 
+// 应用操作到状态机中
 func (kv *ShardKV) applyClientOperation(op Op) *OpReply {
 	if kv.matchGroup(op.Key) {
 		var opReply *OpReply

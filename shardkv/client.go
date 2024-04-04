@@ -26,7 +26,7 @@ func key2shard(key string) int {
 	return shard
 }
 
-// 生成随机数
+// 生成随机数，用于生成客户端编号
 func nrand() int64 {
 	max := big.NewInt(int64(1) << 62)
 	bigx, _ := rand.Int(rand.Reader, max)

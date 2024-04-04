@@ -34,9 +34,6 @@ type PutAppendArgs struct {
 	Op       string // "Put" or "Append"
 	ClientId int64
 	SeqId    int64
-	// You'll have to add definitions here.
-	// Field names must start with capital letters,
-	// otherwise RPC will break.
 }
 
 type PutAppendReply struct {

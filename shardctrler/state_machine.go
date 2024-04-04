@@ -6,6 +6,8 @@ type CtrlerStateMachine struct {
 	Configs []Config
 }
 
+// NewCtrlerStateMachine
+// 初始化下标为0，所有shard都指向0号空Group
 func NewCtrlerStateMachine() *CtrlerStateMachine {
 	cf := &CtrlerStateMachine{Configs: make([]Config, 1)}
 	cf.Configs[0] = DefaultConfig()

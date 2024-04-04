@@ -52,7 +52,6 @@ func (ck *Clerk) Query(num int) Config {
 
 		if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
 			ck.leaderId = (ck.leaderId + 1) % len(ck.servers)
-			print("||:   ", err, "---", reply.Err, "---", "    |||")
 			continue
 		}
 		return reply.Config

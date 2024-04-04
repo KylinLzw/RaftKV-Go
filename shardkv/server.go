@@ -34,7 +34,7 @@ type ShardKV struct {
 
 // StartServer servers[] contains the ports of the servers in this group.
 //
-// Me is the index of the current server in servers[].
+// me is the index of the current server in servers[].
 //
 // the k/v server should store snapshots through the underlying Raft
 // implementation, which should call persister.SaveStateAndSnapshot() to
@@ -58,10 +58,49 @@ type ShardKV struct {
 //
 // StartServer() must return quickly, so it should start goroutines
 // for any long-running work.
-func StartServer(servers []*rpc.Client, me int, persister *raft.Persister, maxraftstate int, gid int,
+//func StartServer(servers []*rpc.Client, me int, persister *raft.Persister, maxraftstate int, gid int,
+//	ctrlers []*rpc.Client, make_end func(string) *rpc.Client) *ShardKV {
+//	// call gob.Register on structures you want
+//	// Go's RPC library to marshall/unmarshall.
+//	gob.Register(Op{})
+//	gob.Register(RaftCommand{})
+//	gob.Register(shardctrler.Config{})
+//	gob.Register(ShardOperationArgs{})
+//	gob.Register(ShardOperationReply{})
+//
+//	kv := new(ShardKV)
+//	kv.me = me
+//	kv.maxraftstate = maxraftstate
+//	kv.make_end = make_end
+//	kv.gid = gid
+//	kv.ctrlers = ctrlers
+//
+//	// Use something like this to talk to the shardctrler:
+//	kv.mck = shardctrler.MakeClerk(kv.ctrlers)
+//
+//	kv.applyCh = make(chan raft.ApplyMsg)
+//	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
+//
+//	kv.dead = 0
+//	kv.lastApplied = 0
+//	kv.shards = make(map[int]*MemoryKVStateMachine)
+//	kv.notifyChans = make(map[int]chan *OpReply)
+//	kv.duplicateTable = make(map[int64]LastOperationInfo)
+//	kv.currentConfig = shardctrler.DefaultConfig()
+//	kv.prevConfig = shardctrler.DefaultConfig()
+//
+//	// 从 snapshot 中恢复状态
+//	kv.restoreFromSnapshot(persister.ReadSnapshot())
+//
+//	go kv.applyTask()
+//	go kv.fetchConfigTask()
+//	go kv.shardMigrationTask()
+//	go kv.shardGCTask()
+//	return kv
+//}
+
+func NewShardKVServer(me int, gid int, maxraftstate int,
 	ctrlers []*rpc.Client, make_end func(string) *rpc.Client) *ShardKV {
-	// call labgob.Register on structures you want
-	// Go's RPC library to marshall/unmarshall.
 	gob.Register(Op{})
 	gob.Register(RaftCommand{})
 	gob.Register(shardctrler.Config{})
@@ -73,14 +112,12 @@ func StartServer(servers []*rpc.Client, me int, persister *raft.Persister, maxra
 	kv.maxraftstate = maxraftstate
 	kv.make_end = make_end
 	kv.gid = gid
-	kv.ctrlers = ctrlers
 
+	kv.ctrlers = ctrlers
 	// Use something like this to talk to the shardctrler:
 	kv.mck = shardctrler.MakeClerk(kv.ctrlers)
 
 	kv.applyCh = make(chan raft.ApplyMsg)
-	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
-
 	kv.dead = 0
 	kv.lastApplied = 0
 	kv.shards = make(map[int]*MemoryKVStateMachine)
@@ -89,14 +126,22 @@ func StartServer(servers []*rpc.Client, me int, persister *raft.Persister, maxra
 	kv.currentConfig = shardctrler.DefaultConfig()
 	kv.prevConfig = shardctrler.DefaultConfig()
 
+	return kv
+}
+
+func (kv *ShardKV) StartServer(persister *raft.Persister, servers []*rpc.Client) {
+	kv.rf = raft.Make(servers, kv.me, persister, kv.applyCh)
 	// 从 snapshot 中恢复状态
 	kv.restoreFromSnapshot(persister.ReadSnapshot())
 
+	rpc.RegisterName("Raft", kv.rf)
 	go kv.applyTask()
 	go kv.fetchConfigTask()
 	go kv.shardMigrationTask()
 	go kv.shardGCTask()
-	return kv
+	for !kv.killed() {
+		time.Sleep(5 * time.Second)
+	}
 }
 
 func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) error {
