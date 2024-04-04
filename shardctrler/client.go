@@ -10,6 +10,7 @@ Move  ：移动某些 shard 到其他 Group 中
 
 import (
 	"crypto/rand"
+	"fmt"
 	"math/big"
 	"net/rpc"
 )
@@ -52,6 +53,7 @@ func (ck *Clerk) Query(num int) Config {
 
 		if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
 			ck.leaderId = (ck.leaderId + 1) % len(ck.servers)
+			fmt.Println(err)
 			continue
 		}
 		return reply.Config

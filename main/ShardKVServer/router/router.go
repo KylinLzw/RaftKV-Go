@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/KylinLzw/RaftKV-Go/RaftKV"
+	"github.com/KylinLzw/RaftKV-Go/shardkv"
 	"github.com/tidwall/redcon"
 	"log"
 	"net/rpc"
@@ -26,9 +26,18 @@ const (
 type Router struct {
 	ip    string //ip地址
 	port  int    //端口号
-	clerk *RaftKV.Clerk
+	clerk *shardkv.Clerk
 	mu    sync.Mutex
 	conns map[string]*CliConn
+}
+
+// make_end函数的定义
+func make_end(servername string) *rpc.Client {
+	client, err := rpc.DialHTTP("tcp", servername)
+	if err != nil {
+		log.Fatalf("Error connecting to server: %v", err)
+	}
+	return client
 }
 
 type CliConn struct {
@@ -60,7 +69,7 @@ func NewRouter(serversAddress []string, ip string, port int) (*Router, error) {
 		serverEnds[i] = client
 		i++
 	}
-	clerk := RaftKV.MakeClerk(serverEnds)
+	clerk := shardkv.MakeClerk(serverEnds, make_end)
 	router.clerk = clerk
 	return router, nil
 }
@@ -137,6 +146,7 @@ func (r *Router) handleCmd(conn redcon.Conn, cmd redcon.Command) {
 				conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
 				return
 			}
+			fmt.Println("router Get...")
 			//2.若正确,则应用命令
 			r.log("接收到Get请求 : ", string(cmd.Args[0]), string(cmd.Args[1]))
 			value := r.clerk.Get(string(cmd.Args[1]))
@@ -191,7 +201,7 @@ var pwdAble bool = false
 
 // 服务器地址
 var (
-	address = []string{"localhost:8000", "localhost:8001", "localhost:8002"}
+	address = []string{"localhost:7000", "localhost:7001", "localhost:7002"}
 )
 
 // 路由地址
