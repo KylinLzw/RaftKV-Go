@@ -36,7 +36,7 @@ func init() {
 	flag.StringVar(&serverIp, "ip", "127.0.0.1", "server的ip")
 	flag.IntVar(&serverPort, "port", 8000, "server的端口")
 	flag.IntVar(&serverNum, "id", 0, "该server在Raft组中的编号")
-	flag.IntVar(&serverGid, "gid", 0, "该server所在的gid编号")
+	flag.IntVar(&serverGid, "gid", 1, "该server所在的gid编号")
 }
 
 // shardctrler 节点信息

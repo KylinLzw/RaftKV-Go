@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 启动三个服务器实例，分别监听 7000, 7001, 7002 端口
+# 启动三个服务器实例，分别监听 8000, 8001, 8002 端口
 
 # 设置 server.go 文件所在的目录
 SERVER_DIR="../main/ShardKvServer/server"

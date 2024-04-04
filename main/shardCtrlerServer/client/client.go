@@ -1,8 +1,9 @@
 package main
 
 /*
-go build client.go -o client
+go build -o client
 ./client Join 1 127.0.0.1:8000 127.0.0.1:8001 127.0.0.1:8002
+./client Join 2 127.0.0.1:8005 127.0.0.1:8006 127.0.0.1:8007
 ./client Query -1
 */
 
