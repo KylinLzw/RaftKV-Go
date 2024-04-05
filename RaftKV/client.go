@@ -42,7 +42,6 @@ func MakeClerk(servers []*rpc.Client) *Clerk {
 //			continue
 //		}
 //		// 调用成功，返回 value
-//		fmt.Printf("333")
 //		return reply.Value
 //	}
 //}

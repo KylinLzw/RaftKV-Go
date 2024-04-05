@@ -72,5 +72,4 @@ func main() {
 		fmt.Println("Join gid server1 server2 ...")
 		fmt.Println("....................")
 	}
-
 }

@@ -44,7 +44,6 @@ func main() {
 	flag.Parse()
 	persister := raft.MakePersister()
 	ShardCtrler := shardctrler.NewshardctrlerServer(serverNum)
-
 	//在rpc中进行注册
 	err := rpc.RegisterName("ShardCtrler", ShardCtrler)
 	if err != nil {

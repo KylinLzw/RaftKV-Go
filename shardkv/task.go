@@ -71,9 +71,7 @@ func (kv *ShardKV) fetchConfigTask() {
 			kv.mu.Unlock()
 
 			if needFetch {
-				//fmt.Println("1111")
 				newConfig := kv.mck.Query(currentNum + 1)
-				//fmt.Println(newConfig.String())
 				// 传入 raft 模块进行同步
 				if newConfig.Num == currentNum+1 {
 					kv.ConfigCommand(RaftCommand{ConfigChange, newConfig}, &OpReply{})

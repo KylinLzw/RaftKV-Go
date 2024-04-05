@@ -175,7 +175,6 @@ func StartServer(servers []*rpc.Client, me int, persister *raft.Persister) *Shar
 func NewshardctrlerServer(me int) *ShardCtrler {
 	sc := new(ShardCtrler)
 	sc.me = me
-
 	sc.configs = make([]Config, 1)
 	sc.configs[0].Groups = map[int][]string{}
 

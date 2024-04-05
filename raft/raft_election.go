@@ -175,13 +175,139 @@ func (rf *Raft) electionTicker() {
 		// Check if a leader election should be started.
 		rf.mu.Lock()
 		if rf.role != Leader && rf.isElectionTimeoutLocked() {
-			rf.becomeCandidateLocked()
-			go rf.startElection(rf.currentTerm)
+			//rf.becomeCandidateLocked()
+			//go rf.startElection(rf.currentTerm)
+
+			// PreVote
+			rf.becomePreCandidateLocked()
+			go rf.startCandidate(rf.currentTerm)
 		}
 		rf.mu.Unlock()
 
 		// pause for a random amount of time between 50 and 350 milliseconds.
-		ms := 50 + (rand.Int63() % 300)
+		// For ms := 50 + (rand.Int63() % 300)
+
+		ms := 500 + (rand.Int63() % 1000)
 		time.Sleep(time.Duration(ms) * time.Millisecond)
+	}
+}
+
+// PreVote: ===========================================================================
+
+// PreVoteRequest :PreVote 请求结构
+type PreVoteRequest struct {
+	Term         int
+	CandidateId  int
+	LastLogIndex int
+	LastLogTerm  int
+}
+
+// PreVoteReply :PreVote回复结构
+type PreVoteReply struct {
+	Term    int
+	Granted bool
+}
+
+// RequestPreVote ：客户端 RPC 响应投票结果
+func (rf *Raft) RequestPreVote(args *PreVoteRequest, reply *PreVoteReply) error {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
+	reply.Term = rf.currentTerm
+	reply.Granted = false
+
+	// align the term
+	if args.Term < rf.currentTerm {
+		MyLog(rf.me, rf.currentTerm, DVote, "<- S%d, Reject PreVoted, Higher term, T%d>T%d", args.CandidateId, rf.currentTerm, args.Term)
+		return nil
+	}
+	if args.Term > rf.currentTerm {
+		rf.becomeFollowerLocked(args.Term)
+	}
+
+	// check for votedFor
+	if rf.votedFor != -1 {
+		LOG(rf.me, rf.currentTerm, DVote, "<- S%d, Reject ProVoted, Already voted to S%d", args.CandidateId, rf.votedFor)
+		return nil
+	}
+
+	// check if candidate's last log is more up to date
+	if rf.isMoreUpToDateLocked(args.LastLogIndex, args.LastLogTerm) {
+		MyLog(rf.me, rf.currentTerm, DVote, "<- S%d, Reject PreVoted, Candidate less up-to-date", args.CandidateId)
+		return nil
+	}
+
+	reply.Granted = true
+	MyLog(rf.me, rf.currentTerm, DVote, "<- S%d, ProVote granted", args.CandidateId)
+	return nil
+}
+
+// 发送 RPC 请求获取投票
+func (rf *Raft) sendRequestPreVote(server int, args *PreVoteRequest, reply *PreVoteReply) bool {
+	err := rf.peers[server].Call("Raft.RequestPreVote", args, reply)
+	return err == nil
+}
+
+// 试探函数，对每个节点发送 RPC请求
+func (rf *Raft) startCandidate(term int) {
+	votes := 0
+	MyLog(rf.me, rf.currentTerm, DInfo, "Start PreVote... Term: %d", term)
+
+	// 回调函数，等待选举结果响应
+	askPreVoteFromPeer := func(peer int, args *PreVoteRequest) {
+		reply := &PreVoteReply{}
+		ok := rf.sendRequestPreVote(peer, args, reply)
+
+		rf.mu.Lock()
+		defer rf.mu.Unlock()
+		if !ok {
+			MyLog(rf.me, rf.currentTerm, DDebug, "-> S%d, Ask for PreVote, Lost or error", peer)
+			return
+		}
+
+		// align term
+		if reply.Term > rf.currentTerm {
+			rf.becomeFollowerLocked(reply.Term)
+			return
+		}
+
+		if rf.contextLostLocked(PreCandidate, term) {
+			LOG(rf.me, rf.currentTerm, DVote, "-> S%d, Lost context, abort RequestPreVoteReply", peer)
+			return
+		}
+
+		// count the votes
+		if reply.Granted {
+			votes++
+			if votes > len(rf.peers)/2 {
+				rf.becomeCandidateLocked()
+				go rf.startElection(rf.currentTerm)
+			}
+
+		}
+	}
+
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
+	if rf.contextLostLocked(PreCandidate, term) {
+		LOG(rf.me, rf.currentTerm, DVote, "Lost PreCandidate[T%d] to %s[T%d], abort RequestPreVote", rf.role, term, rf.currentTerm)
+		return
+	}
+
+	lastIdx, lastTerm := rf.log.last()
+
+	for peer := 0; peer < len(rf.peers); peer++ {
+		if peer == rf.me {
+			votes++
+			continue
+		}
+		args := &PreVoteRequest{
+			Term:         rf.currentTerm + 1,
+			CandidateId:  rf.me,
+			LastLogIndex: lastIdx,
+			LastLogTerm:  lastTerm,
+		}
+		go askPreVoteFromPeer(peer, args)
 	}
 }

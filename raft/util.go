@@ -52,7 +52,7 @@ func getTopicLevel(topic logTopic) int {
 
 func getEnvLevel() int {
 	v := os.Getenv("VERBOSE")
-	v = "2"
+	//v = "0"
 	level := getTopicLevel(DError) + 1
 	if v != "" {
 		var err error
@@ -77,6 +77,20 @@ func init() {
 
 func LOG(peerId int, term int, topic logTopic, format string, a ...interface{}) {
 	topicLevel := getTopicLevel(topic)
+	if logLevel <= topicLevel {
+		time := time.Since(logStart).Microseconds()
+		time /= 100
+		prefix := fmt.Sprintf("%06d T%04d %v S%d ", time, term, string(topic), peerId)
+		format = prefix + format
+		log.Printf(format, a...)
+	}
+}
+
+var LEAVEL = 5
+
+func MyLog(peerId int, term int, topic logTopic, format string, a ...interface{}) {
+	topicLevel := getTopicLevel(topic)
+	topicLevel = LEAVEL
 	if logLevel <= topicLevel {
 		time := time.Since(logStart).Microseconds()
 		time /= 100

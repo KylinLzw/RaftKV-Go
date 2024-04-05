@@ -7,11 +7,17 @@ import (
 	"time"
 )
 
-const (
-	electionTimeoutMin time.Duration = 250 * time.Millisecond
-	electionTimeoutMax time.Duration = 400 * time.Millisecond
+// TODO: 只剩一个Candidate的时候会疯狂发出选举，导致term一直变大
+// 在PreVote算法中，Candidate首先要确认自己能赢得集群中大多数节点的投票，这样才会把自己的term增加
 
-	replicateInterval time.Duration = 30 * time.Millisecond
+const (
+	//electionTimeoutMin time.Duration = 250 * time.Millisecond
+	//electionTimeoutMax time.Duration = 400 * time.Millisecond
+	//replicateInterval time.Duration = 30 * time.Millisecond
+
+	electionTimeoutMin time.Duration = 5000 * time.Millisecond
+	electionTimeoutMax time.Duration = 8000 * time.Millisecond
+	replicateInterval  time.Duration = 500 * time.Millisecond
 )
 
 const (
@@ -22,9 +28,10 @@ const (
 type Role string
 
 const (
-	Follower  Role = "Follower"
-	Candidate Role = "Candidate"
-	Leader    Role = "Leader"
+	Follower     Role = "Follower"
+	PreCandidate      = "PreCandidate"
+	Candidate    Role = "Candidate"
+	Leader       Role = "Leader"
 )
 
 // Raft :A Go object implementing a single Raft peer.
@@ -65,6 +72,9 @@ func (rf *Raft) becomeFollowerLocked(term int) {
 	}
 
 	LOG(rf.me, rf.currentTerm, DLog, "%s->Follower, For T%v->T%v", rf.role, rf.currentTerm, term)
+
+	MyLog(rf.me, rf.currentTerm, DInfo,
+		"role: %s -> Follower, term: %v -> %v", rf.role, rf.currentTerm, term)
 	rf.role = Follower
 	shouldPersit := rf.currentTerm != term
 	if term > rf.currentTerm {
@@ -76,13 +86,28 @@ func (rf *Raft) becomeFollowerLocked(term int) {
 	}
 }
 
-func (rf *Raft) becomeCandidateLocked() {
-	if rf.role == Leader {
-		LOG(rf.me, rf.currentTerm, DError, "Leader can't become Candidate")
+func (rf *Raft) becomePreCandidateLocked() {
+	if rf.role == Leader || rf.role == Candidate {
+		LOG(rf.me, rf.currentTerm, DError, "Leader or Candidate can't become Candidate")
 		return
 	}
 
-	LOG(rf.me, rf.currentTerm, DVote, "%s->Candidate, For T%d", rf.role, rf.currentTerm+1)
+	MyLog(rf.me, rf.currentTerm, DInfo,
+		"role: %s -> PreCandidate, term: %v -> %v", rf.role, rf.currentTerm, rf.currentTerm+1)
+
+	rf.role = PreCandidate
+	rf.persistLocked()
+}
+
+func (rf *Raft) becomeCandidateLocked() {
+	if rf.role != PreCandidate {
+		LOG(rf.me, rf.currentTerm, DError, "%s can't become Candidate", rf.role)
+		return
+	}
+
+	MyLog(rf.me, rf.currentTerm, DInfo,
+		"role: %s -> Candidate, term: %v -> %v", rf.role, rf.currentTerm, rf.currentTerm+1)
+
 	rf.currentTerm++
 	rf.role = Candidate
 	rf.votedFor = rf.me
@@ -96,6 +121,10 @@ func (rf *Raft) becomeLeaderLocked() {
 	}
 
 	LOG(rf.me, rf.currentTerm, DLeader, "Become Leader in T%d", rf.currentTerm)
+
+	MyLog(rf.me, rf.currentTerm, DInfo,
+		"role: %s -> Leader, in term: %v", rf.role, rf.currentTerm)
+
 	rf.role = Leader
 	for peer := 0; peer < len(rf.peers); peer++ {
 		rf.nextIndex[peer] = rf.log.size()

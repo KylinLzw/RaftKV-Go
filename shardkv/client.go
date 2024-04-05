@@ -10,7 +10,6 @@ package shardkv
 
 import (
 	"crypto/rand"
-	"fmt"
 	"github.com/KylinLzw/RaftKV-Go/shardctrler"
 	"math/big"
 	"net/rpc"
@@ -71,17 +70,13 @@ func MakeClerk(ctrlers []*rpc.Client, make_end func(string) *rpc.Client) *Clerk 
 func (ck *Clerk) Get(key string) string {
 	args := GetArgs{}
 	args.Key = key
-	fmt.Println("Clerk Get...")
 
 	for {
-		fmt.Println("Clerk Get1...")
 
 		shard := key2shard(key)
 		gid := ck.config.Shards[shard]
-		fmt.Println(shard, gid)
 		if servers, ok := ck.config.Groups[gid]; ok {
 			// try each server for the shard.
-			fmt.Println("Clerk Get111...")
 			if _, exist := ck.leaderIds[gid]; !exist {
 				ck.leaderIds[gid] = 0
 			}
@@ -90,7 +85,6 @@ func (ck *Clerk) Get(key string) string {
 			for {
 				srv := ck.make_end(servers[ck.leaderIds[gid]])
 				var reply GetReply
-				fmt.Println("Clerk Get2...")
 
 				err := srv.Call("ShardKV.Get", &args, &reply)
 				if err == nil && (reply.Err == OK || reply.Err == ErrNoKey) {
@@ -110,10 +104,8 @@ func (ck *Clerk) Get(key string) string {
 		}
 		time.Sleep(100 * time.Millisecond)
 		// ask controler for the latest configuration.
-		fmt.Println("Clerk Get3...")
 
 		ck.config = ck.sm.Query(-1)
-		fmt.Println("Clerk Get4...")
 
 	}
 }
