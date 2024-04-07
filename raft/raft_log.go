@@ -7,8 +7,8 @@ readPersist：恢复日志信息
 persist：序列化日志数据
 size：返回日志真实大小，包括压缩日志的内容
 at：根据传入 id 返回在 tailLog 中的真实数据
-doSnapshot：对日志根据检查点做日志压缩
-installSnapshot：构造一个新的压缩日志
+doSnapshot：对日志根据检查点做日志快照
+installSnapshot：从日志快照恢复日志数据
 */
 
 import (

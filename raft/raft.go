@@ -7,17 +7,15 @@ import (
 	"time"
 )
 
-// TODO: 只剩一个Candidate的时候会疯狂发出选举，导致term一直变大
-// 在PreVote算法中，Candidate首先要确认自己能赢得集群中大多数节点的投票，这样才会把自己的term增加
-
 const (
 	//electionTimeoutMin time.Duration = 250 * time.Millisecond
 	//electionTimeoutMax time.Duration = 400 * time.Millisecond
 	//replicateInterval time.Duration = 30 * time.Millisecond
 
-	electionTimeoutMin time.Duration = 5000 * time.Millisecond
-	electionTimeoutMax time.Duration = 8000 * time.Millisecond
-	replicateInterval  time.Duration = 500 * time.Millisecond
+	// For show
+	electionTimeoutMin time.Duration = 3000 * time.Millisecond
+	electionTimeoutMax time.Duration = 5000 * time.Millisecond
+	replicateInterval  time.Duration = 1000 * time.Millisecond
 )
 
 const (
@@ -29,10 +27,12 @@ type Role string
 
 const (
 	Follower     Role = "Follower"
-	PreCandidate      = "PreCandidate"
+	PreCandidate Role = "PreCandidate"
 	Candidate    Role = "Candidate"
 	Leader       Role = "Leader"
 )
+
+// For Raft peer ===============================================================
 
 // Raft :A Go object implementing a single Raft peer.
 type Raft struct {
@@ -65,122 +65,7 @@ type Raft struct {
 	electionTimeout time.Duration // random
 }
 
-func (rf *Raft) becomeFollowerLocked(term int) {
-	if term < rf.currentTerm {
-		LOG(rf.me, rf.currentTerm, DError, "Can't become Follower, lower term: T%d", term)
-		return
-	}
-
-	LOG(rf.me, rf.currentTerm, DLog, "%s->Follower, For T%v->T%v", rf.role, rf.currentTerm, term)
-
-	MyLog(rf.me, rf.currentTerm, DInfo,
-		"role: %s -> Follower, term: %v -> %v", rf.role, rf.currentTerm, term)
-	rf.role = Follower
-	shouldPersit := rf.currentTerm != term
-	if term > rf.currentTerm {
-		rf.votedFor = -1
-	}
-	rf.currentTerm = term
-	if shouldPersit {
-		rf.persistLocked()
-	}
-}
-
-func (rf *Raft) becomePreCandidateLocked() {
-	if rf.role == Leader || rf.role == Candidate {
-		LOG(rf.me, rf.currentTerm, DError, "Leader or Candidate can't become Candidate")
-		return
-	}
-
-	MyLog(rf.me, rf.currentTerm, DInfo,
-		"role: %s -> PreCandidate, term: %v -> %v", rf.role, rf.currentTerm, rf.currentTerm+1)
-
-	rf.role = PreCandidate
-	rf.persistLocked()
-}
-
-func (rf *Raft) becomeCandidateLocked() {
-	if rf.role != PreCandidate {
-		LOG(rf.me, rf.currentTerm, DError, "%s can't become Candidate", rf.role)
-		return
-	}
-
-	MyLog(rf.me, rf.currentTerm, DInfo,
-		"role: %s -> Candidate, term: %v -> %v", rf.role, rf.currentTerm, rf.currentTerm+1)
-
-	rf.currentTerm++
-	rf.role = Candidate
-	rf.votedFor = rf.me
-	rf.persistLocked()
-}
-
-func (rf *Raft) becomeLeaderLocked() {
-	if rf.role != Candidate {
-		LOG(rf.me, rf.currentTerm, DError, "Only Candidate can become Leader")
-		return
-	}
-
-	LOG(rf.me, rf.currentTerm, DLeader, "Become Leader in T%d", rf.currentTerm)
-
-	MyLog(rf.me, rf.currentTerm, DInfo,
-		"role: %s -> Leader, in term: %v", rf.role, rf.currentTerm)
-
-	rf.role = Leader
-	for peer := 0; peer < len(rf.peers); peer++ {
-		rf.nextIndex[peer] = rf.log.size()
-		rf.matchIndex[peer] = 0
-	}
-}
-
-// GetState :return currentTerm and whether this server
-// believes it is the leader.
-func (rf *Raft) GetState() (int, bool) {
-	// Your code here (PartA).
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	return rf.currentTerm, rf.role == Leader
-}
-
-func (rf *Raft) GetRaftStateSize() int {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	return rf.persister.RaftStateSize()
-}
-
-func (rf *Raft) Start(command interface{}) (int, int, bool) {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-
-	if rf.role != Leader {
-		return 0, 0, false
-	}
-	rf.log.append(LogEntry{
-		CommandValid: true,
-		Command:      command,
-		Term:         rf.currentTerm,
-	})
-	LOG(rf.me, rf.currentTerm, DLeader, "Leader accept log [%d]T%d", rf.log.size()-1, rf.currentTerm)
-	rf.persistLocked()
-
-	return rf.log.size() - 1, rf.currentTerm, true
-}
-
-func (rf *Raft) Kill() {
-	atomic.StoreInt32(&rf.dead, 1)
-	// Your code here, if desired.
-}
-
-func (rf *Raft) killed() bool {
-	z := atomic.LoadInt32(&rf.dead)
-	return z == 1
-}
-
-func (rf *Raft) contextLostLocked(role Role, term int) bool {
-	return !(rf.currentTerm == term && rf.role == role)
-}
-
-func Make(peers []*rpc.Client, me int,
-	persister *Persister, applyCh chan ApplyMsg) *Raft {
+func Make(peers []*rpc.Client, me int, persister *Persister, applyCh chan ApplyMsg) *Raft {
 	rf := &Raft{}
 	rf.peers = peers
 	rf.persister = persister
@@ -207,9 +92,124 @@ func Make(peers []*rpc.Client, me int,
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
 
+	MyLog(rf.me, rf.currentTerm, DInfo,
+		"\033[32mRaft init .....\033[0m")
 	// start ticker goroutine to start elections
 	go rf.electionTicker()
 	go rf.applicationTicker()
 
 	return rf
+}
+
+func (rf *Raft) Start(command interface{}) (int, int, bool) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
+	if rf.role != Leader {
+		MyLog(rf.me, rf.currentTerm, DError, "\033[31mNot leader, can't make Start\033[0m")
+		return 0, 0, false
+	}
+	rf.log.append(LogEntry{
+		CommandValid: true,
+		Command:      command,
+		Term:         rf.currentTerm,
+	})
+	MyLog(rf.me, rf.currentTerm, DRLog,
+		"\033[32mLeader accept log:[%d] Term:%d\033[0m", rf.log.size()-1, rf.currentTerm)
+	rf.persistLocked()
+
+	return rf.log.size() - 1, rf.currentTerm, true
+}
+
+// For Role change =============================================================
+
+func (rf *Raft) becomeFollowerLocked(term int) {
+	if term < rf.currentTerm {
+		MyLog(rf.me, rf.currentTerm, DError, "Can't become Follower, lower term: T%v", term)
+		return
+	}
+
+	MyLog(rf.me, rf.currentTerm, DROLE,
+		"role: %s -> Follower, term: %v->%v", rf.role, rf.currentTerm, term)
+	rf.role = Follower
+	shouldPersit := rf.currentTerm != term
+	if term > rf.currentTerm {
+		rf.votedFor = -1
+	}
+	rf.currentTerm = term
+	if shouldPersit {
+		rf.persistLocked()
+	}
+}
+
+func (rf *Raft) becomePreCandidateLocked() {
+	if rf.role == Leader || rf.role == Candidate {
+		MyLog(rf.me, rf.currentTerm, DError, "Leader or Candidate can't become PreCandidate")
+		return
+	}
+
+	MyLog(rf.me, rf.currentTerm, DROLE,
+		"role: %s -> PreCandidate, term: %v -> %v", rf.role, rf.currentTerm, rf.currentTerm+1)
+
+	rf.role = PreCandidate
+	rf.persistLocked()
+}
+
+func (rf *Raft) becomeCandidateLocked() {
+	if rf.role != PreCandidate {
+		MyLog(rf.me, rf.currentTerm, DError, "%s can't become Candidate", rf.role)
+		return
+	}
+
+	MyLog(rf.me, rf.currentTerm, DROLE,
+		"role: %s -> Candidate, term: %v -> %v", rf.role, rf.currentTerm, rf.currentTerm+1)
+
+	rf.currentTerm++
+	rf.role = Candidate
+	rf.votedFor = rf.me
+	rf.persistLocked()
+}
+
+func (rf *Raft) becomeLeaderLocked() {
+	if rf.role != Candidate {
+		MyLog(rf.me, rf.currentTerm, DError, "Only Candidate can become Leader")
+		return
+	}
+
+	MyLog(rf.me, rf.currentTerm, DROLE,
+		"\033[32mrole: %s -> Leader, in term: %v\033[0m", rf.role, rf.currentTerm)
+
+	rf.role = Leader
+	for peer := 0; peer < len(rf.peers); peer++ {
+		rf.nextIndex[peer] = rf.log.size()
+		rf.matchIndex[peer] = 0
+	}
+}
+
+func (rf *Raft) contextLostLocked(role Role, term int) bool {
+	return !(rf.currentTerm == term && rf.role == role)
+}
+
+//For Raft State ==============================================================
+
+func (rf *Raft) GetState() (int, bool) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return rf.currentTerm, rf.role == Leader
+}
+
+func (rf *Raft) GetRaftStateSize() int {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	return rf.persister.RaftStateSize()
+}
+
+func (rf *Raft) Kill() {
+	atomic.StoreInt32(&rf.dead, 1)
+	// Your code here, if desired.
+}
+
+func (rf *Raft) killed() bool {
+	z := atomic.LoadInt32(&rf.dead)
+	return z == 1
 }

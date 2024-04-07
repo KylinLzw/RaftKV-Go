@@ -61,10 +61,10 @@ func (rf *Raft) applicationTicker() {
 
 		rf.mu.Lock()
 		if !snapPendingApply {
-			LOG(rf.me, rf.currentTerm, DApply, "Apply log for [%d, %d]", rf.lastApplied+1, rf.lastApplied+len(entries))
+			MyLog(rf.me, rf.currentTerm, DApply, "Apply log for [%d, %d]", rf.lastApplied+1, rf.lastApplied+len(entries))
 			rf.lastApplied += len(entries)
 		} else {
-			LOG(rf.me, rf.currentTerm, DApply, "Apply snapshot for [0, %d]", 0, rf.log.snapLastIdx)
+			MyLog(rf.me, rf.currentTerm, DApply, "Apply snapshot for [0, %d]", 0, rf.log.snapLastIdx)
 			rf.lastApplied = rf.log.snapLastIdx
 			if rf.commitIndex < rf.lastApplied {
 				rf.commitIndex = rf.lastApplied

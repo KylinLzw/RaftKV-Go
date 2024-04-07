@@ -13,13 +13,14 @@ func (rf *Raft) Snapshot(index int, snapshot []byte) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	if index > rf.commitIndex {
-		LOG(rf.me, rf.currentTerm, DSnap, "Couldn't snapshot before CommitIdx: %d>%d", index, rf.commitIndex)
+		MyLog(rf.me, rf.currentTerm, DSnap, "\033[34mCouldn't snapshot before CommitIdx: %d>%d\033[0m", index, rf.commitIndex)
 		return
 	}
 	if index <= rf.log.snapLastIdx {
-		LOG(rf.me, rf.currentTerm, DSnap, "Already snapshot in %d<=%d", index, rf.log.snapLastIdx)
+		MyLog(rf.me, rf.currentTerm, DSnap, "\033[34mAlready snapshot in %d<=%d\033[0m", index, rf.log.snapLastIdx)
 		return
 	}
+	MyLog(rf.me, rf.currentTerm, DSnap, "\033[32mDo Snap.....\033[0m")
 	rf.log.doSnapshot(index, snapshot)
 	rf.persistLocked()
 }
@@ -55,25 +56,27 @@ func (rf *Raft) sendInstallSnapshot(server int, args *InstallSnapshotArgs, reply
 func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapshotReply) error {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	LOG(rf.me, rf.currentTerm, DDebug, "<- S%d, RecvSnapshot, Args=%v", args.LeaderId, args.String())
+	MyLog(rf.me, rf.currentTerm, DDebug, "<- S%d, RecvSnapshot, Args=%v", args.LeaderId, args.String())
 
 	reply.Term = rf.currentTerm
 	// align the term
 	if args.Term < rf.currentTerm {
-		LOG(rf.me, rf.currentTerm, DSnap, "<- S%d, Reject Snap, Higher Term: T%d>T%d", args.LeaderId, rf.currentTerm, args.Term)
+		MyLog(rf.me, rf.currentTerm, DSnap, "\033[34m<- S%d, Reject Snap, Higher Term: T%d>T%d\033[0m", args.LeaderId, rf.currentTerm, args.Term)
 		return nil
 	}
 	if args.Term >= rf.currentTerm { // = handle the case when the peer is candidate
+		MyLog(rf.me, rf.currentTerm, DSnap, "\033[32mReceive InstallSnap from S%d\033[0m", args.LeaderId)
 		rf.becomeFollowerLocked(args.Term)
 	}
 
 	// check if there is already a snapshot contains the one in the RPC
 	if rf.log.snapLastIdx >= args.LastIncludedIndex {
-		LOG(rf.me, rf.currentTerm, DSnap, "<- S%d, Reject Snap, Already installed: %d>%d", args.LeaderId, rf.log.snapLastIdx, args.LastIncludedIndex)
+		MyLog(rf.me, rf.currentTerm, DSnap, "<- S%d, Reject Snap, Already installed: %d>%d", args.LeaderId, rf.log.snapLastIdx, args.LastIncludedIndex)
 		return nil
 	}
 
 	// install the snapshot in the memory/persister/app
+	MyLog(rf.me, rf.currentTerm, DSnap, "\033[32mDo InstallSnap.....\033[0m")
 	rf.log.installSnapshot(args.LastIncludedIndex, args.LastIncludedTerm, args.Snapshot)
 	rf.persistLocked()
 	rf.snapPending = true
@@ -89,20 +92,21 @@ func (rf *Raft) installToPeer(peer, term int, args *InstallSnapshotArgs) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	if !ok {
-		LOG(rf.me, rf.currentTerm, DLog, "-> S%d, Lost or crashed", peer)
+		MyLog(rf.me, rf.currentTerm, DSnap, "-> S%d, Lost or crashed", peer)
 		return
 	}
-	LOG(rf.me, rf.currentTerm, DDebug, "-> S%d, SendSnapshot, Reply=%v", peer, reply.String())
+	MyLog(rf.me, rf.currentTerm, DDebug, "-> S%d, SendSnapshot, Reply=%v", peer, reply.String())
 
 	// align the term
 	if reply.Term > rf.currentTerm {
+		MyLog(rf.me, rf.currentTerm, DSnap, "\033[32mReceive bigger term:%d\033[0m", reply.Term)
 		rf.becomeFollowerLocked(reply.Term)
 		return
 	}
 
 	// check context lost
 	if rf.contextLostLocked(Leader, term) {
-		LOG(rf.me, rf.currentTerm, DLog, "-> S%d, Context Lost, T%d:Leader->T%d:%s", peer, term, rf.currentTerm, rf.role)
+		MyLog(rf.me, rf.currentTerm, DInfo, "\033[32m-> S%d, Context Lost, T%d:Leader->T%d:%s\033[0m", peer, term, rf.currentTerm, rf.role)
 		return
 	}
 
