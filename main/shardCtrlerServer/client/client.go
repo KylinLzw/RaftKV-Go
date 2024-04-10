@@ -63,9 +63,18 @@ func main() {
 		num := -1
 		num, _ = strconv.Atoi(os.Args[2])
 		fmt.Println(client.Query(num).String())
-
+	case "Kill":
+		num, _ := strconv.Atoi(os.Args[2])
+		ok := client.Kill(num)
+		fmt.Println(ok)
+	case "Restart":
+		num, _ := strconv.Atoi(os.Args[2])
+		ok := client.Restart(num)
+		fmt.Println(ok)
 	default:
 		fmt.Println(".....输入指令有误.....")
+		fmt.Println("Kill num")
+		fmt.Println("Restart num")
 		fmt.Println("Query num")
 		fmt.Println("Move shard gid")
 		fmt.Println("Leave gid1 gid2 ...")

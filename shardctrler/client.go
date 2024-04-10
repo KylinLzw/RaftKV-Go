@@ -10,6 +10,7 @@ Move  ：移动某些 shard 到其他 Group 中
 
 import (
 	"crypto/rand"
+	"fmt"
 	"math/big"
 	"net/rpc"
 )
@@ -40,6 +41,32 @@ func MakeClerk(servers []*rpc.Client) *Clerk {
 	return ck
 }
 
+// Kill ：关闭某个结点的服务
+func (ck *Clerk) Kill(num int) bool {
+	args := &KillArgs{}
+	var reply KillReply
+	args.ServerId = num
+	err := ck.servers[args.ServerId].Call("ShardCtrler.KillServer", args, &reply)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+	return true
+}
+
+// Restart ：重启某个结点的服务
+func (ck *Clerk) Restart(num int) bool {
+	args := &RestartArgs{}
+	var reply RestartReply
+	args.ServerId = num
+	err := ck.servers[args.ServerId].Call("ShardCtrler.RestartServer", args, &reply)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+	return true
+}
+
 // Query ：询问当前 shardKV 的配置信息
 func (ck *Clerk) Query(num int) Config {
 	args := &QueryArgs{}
@@ -49,6 +76,13 @@ func (ck *Clerk) Query(num int) Config {
 		// try each known server.
 		var reply QueryReply
 		err := ck.servers[ck.leaderId].Call("ShardCtrler.Query", args, &reply)
+
+		if err != nil {
+			fmt.Println(ck.leaderId, "-> RPC err:", err)
+		}
+		if reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
+			fmt.Println(ck.leaderId, "-> reply err:", reply.Err)
+		}
 
 		if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
 			ck.leaderId = (ck.leaderId + 1) % len(ck.servers)
@@ -66,6 +100,14 @@ func (ck *Clerk) Join(servers map[int][]string) {
 	for {
 		var reply JoinReply
 		err := ck.servers[ck.leaderId].Call("ShardCtrler.Join", args, &reply)
+
+		if err != nil {
+			fmt.Println(ck.leaderId, "-> RPC err:", err)
+		}
+		if reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
+			fmt.Println(ck.leaderId, "-> reply err:", reply.Err)
+		}
+
 		if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
 			ck.leaderId = (ck.leaderId + 1) % len(ck.servers)
 			continue
@@ -84,6 +126,14 @@ func (ck *Clerk) Leave(gids []int) {
 		// try each known server.
 		var reply LeaveReply
 		err := ck.servers[ck.leaderId].Call("ShardCtrler.Leave", args, &reply)
+
+		if err != nil {
+			fmt.Println(ck.leaderId, "-> RPC err:", err)
+		}
+		if reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
+			fmt.Println(ck.leaderId, "-> reply err:", reply.Err)
+		}
+
 		if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
 			ck.leaderId = (ck.leaderId + 1) % len(ck.servers)
 			continue
@@ -103,6 +153,14 @@ func (ck *Clerk) Move(shard int, gid int) {
 		// try each known server.
 		var reply MoveReply
 		err := ck.servers[ck.leaderId].Call("ShardCtrler.Move", args, &reply)
+
+		if err != nil {
+			fmt.Println(ck.leaderId, "-> RPC err:", err)
+		}
+		if reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
+			fmt.Println(ck.leaderId, "-> reply err:", reply.Err)
+		}
+
 		if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
 			ck.leaderId = (ck.leaderId + 1) % len(ck.servers)
 			continue

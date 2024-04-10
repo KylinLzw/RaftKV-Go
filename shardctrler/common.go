@@ -33,6 +33,22 @@ const (
 
 type Err string
 
+type KillArgs struct {
+	ServerId int
+}
+
+type KillReply struct {
+	Err Err
+}
+
+type RestartArgs struct {
+	ServerId int
+}
+
+type RestartReply struct {
+	Err Err
+}
+
 type JoinArgs struct {
 	Servers  map[int][]string // new GID -> servers mappings
 	ClientId int64
@@ -77,7 +93,10 @@ type QueryReply struct {
 	Config      Config
 }
 
-const ClientRequestTimeout = 500 * time.Millisecond
+// const ClientRequestTimeout = 500 * time.Millisecond
+
+// For show
+const ClientRequestTimeout = 3000 * time.Millisecond
 
 const Debug = false
 

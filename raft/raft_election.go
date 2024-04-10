@@ -7,6 +7,7 @@ sendRequestVote： 发送 RPC 请求获取投票
 startElection：选举函数，对每个节点发送 RPC请求
 */
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"time"
@@ -98,7 +99,7 @@ func (rf *Raft) startElection(term int) {
 		rf.mu.Lock()
 		defer rf.mu.Unlock()
 		if !ok {
-			MyLog(rf.me, rf.currentTerm, DVote, "-> S%d, Ask vote, Lost or error", peer)
+			MyLog(rf.me, rf.currentTerm, DVote, "-> S%d, Ask vote, peer down", peer)
 			return
 		}
 		MyLog(rf.me, rf.currentTerm, DDebug, "-> S%d, AskVote Reply=%v", peer, reply.String())
@@ -162,6 +163,9 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) erro
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 
+	if rf.killed() {
+		return errors.New("peer down")
+	}
 	MyLog(rf.me, rf.currentTerm, DDebug, "<- S%d, VoteAsked, Args=%v", args.CandidateId, args.String())
 
 	reply.Term = rf.currentTerm
@@ -225,7 +229,7 @@ func (rf *Raft) startCandidate(term int) {
 		rf.mu.Lock()
 		defer rf.mu.Unlock()
 		if !ok {
-			MyLog(rf.me, rf.currentTerm, DVote, "-> S%d, Ask for PreVote, Lost or error", peer)
+			MyLog(rf.me, rf.currentTerm, DVote, "-> S%d, Ask for PreVote, peer down", peer)
 			return
 		}
 
@@ -291,6 +295,9 @@ func (rf *Raft) RequestPreVote(args *PreVoteRequest, reply *PreVoteReply) error 
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 
+	if rf.killed() {
+		return errors.New("peer down")
+	}
 	reply.Term = rf.currentTerm
 	reply.Granted = false
 

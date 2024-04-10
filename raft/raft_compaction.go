@@ -6,7 +6,10 @@ Snapshot：进行日志压缩
 InstallSnapshot： Follower 接收日志信息进行同步
 installToPeer：Leader 发送日志信息请求同步
 */
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 // Snapshot ：进行日志压缩
 func (rf *Raft) Snapshot(index int, snapshot []byte) {
@@ -58,6 +61,9 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 	defer rf.mu.Unlock()
 	MyLog(rf.me, rf.currentTerm, DDebug, "<- S%d, RecvSnapshot, Args=%v", args.LeaderId, args.String())
 
+	if rf.killed() {
+		return errors.New("peer down")
+	}
 	reply.Term = rf.currentTerm
 	// align the term
 	if args.Term < rf.currentTerm {
@@ -92,7 +98,7 @@ func (rf *Raft) installToPeer(peer, term int, args *InstallSnapshotArgs) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	if !ok {
-		MyLog(rf.me, rf.currentTerm, DSnap, "-> S%d, Lost or crashed", peer)
+		MyLog(rf.me, rf.currentTerm, DSnap, "-> S%d, peer down", peer)
 		return
 	}
 	MyLog(rf.me, rf.currentTerm, DDebug, "-> S%d, SendSnapshot, Reply=%v", peer, reply.String())

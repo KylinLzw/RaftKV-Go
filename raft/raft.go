@@ -206,9 +206,13 @@ func (rf *Raft) GetRaftStateSize() int {
 
 func (rf *Raft) Kill() {
 	atomic.StoreInt32(&rf.dead, 1)
-	// Your code here, if desired.
+	rf.becomeFollowerLocked(rf.currentTerm)
 }
 
+func (rf *Raft) Restart() {
+	atomic.StoreInt32(&rf.dead, 0)
+	go rf.electionTicker()
+}
 func (rf *Raft) killed() bool {
 	z := atomic.LoadInt32(&rf.dead)
 	return z == 1

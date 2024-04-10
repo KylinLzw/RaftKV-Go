@@ -10,6 +10,7 @@ package shardkv
 
 import (
 	"crypto/rand"
+	"fmt"
 	"github.com/KylinLzw/RaftKV-Go/shardctrler"
 	"math/big"
 	"net/rpc"
@@ -93,6 +94,14 @@ func (ck *Clerk) Get(key string) string {
 				if err == nil && (reply.Err == ErrWrongGroup) {
 					break
 				}
+
+				if err != nil {
+					fmt.Println(ck.leaderIds[gid], "-> RPC err:", err)
+				}
+				if reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
+					fmt.Println(ck.leaderIds[gid], "-> reply err:", reply.Err)
+				}
+
 				if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
 					ck.leaderIds[gid] = (ck.leaderIds[gid] + 1) % len(servers)
 					if ck.leaderIds[gid] == oldLeaderId {
@@ -139,6 +148,12 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 				}
 				if err == nil && reply.Err == ErrWrongGroup {
 					break
+				}
+				if err != nil {
+					fmt.Println(ck.leaderIds[gid], "-> RPC err:", err)
+				}
+				if reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
+					fmt.Println(ck.leaderIds[gid], "-> reply err:", reply.Err)
 				}
 				// ... not ok, or ErrWrongLeader
 				if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {

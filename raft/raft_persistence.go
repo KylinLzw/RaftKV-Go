@@ -13,7 +13,7 @@ import (
 
 // 格式化存储的数据
 func (rf *Raft) persistString() string {
-	return fmt.Sprintf("T%d, VotedFor: %d, Log: [0: %d)", rf.currentTerm, rf.votedFor, rf.log.size())
+	return fmt.Sprintf("T%d, VotedFor: %d, Log: [0: %d]", rf.currentTerm, rf.votedFor, rf.log.size()-1)
 }
 
 // 用于对数据序列化后调用 persister.Save() 保存数据

@@ -12,6 +12,8 @@ Query(num) -> fetch Config # num, or latest config if num==-1.
 
 import (
 	"encoding/gob"
+	"errors"
+	"fmt"
 	"github.com/KylinLzw/RaftKV-Go/raft"
 	"net/rpc"
 	"sync"
@@ -38,6 +40,21 @@ type ShardCtrler struct {
 func (sc *ShardCtrler) requestDuplicated(clientId, seqId int64) bool {
 	info, ok := sc.duplicateTable[clientId]
 	return ok && seqId <= info.SeqId
+}
+
+func (sc *ShardCtrler) KillServer(args *KillArgs, reply *KillReply) error {
+	if sc.dead == 1 {
+		return errors.New("server has been killed")
+	}
+	sc.Kill()
+	return nil
+}
+func (sc *ShardCtrler) RestartServer(args *RestartArgs, reply *RestartReply) error {
+	if sc.dead != 1 {
+		return errors.New("server is running")
+	}
+	sc.Restart()
+	return nil
 }
 
 // Join ：PRC 添加 Group
@@ -80,7 +97,6 @@ func (sc *ShardCtrler) Move(args *MoveArgs, reply *MoveReply) error {
 	}, &opReply)
 	reply.Err = opReply.Err
 	return nil
-
 }
 
 // Query ：PRC 询问 Group 组信息
@@ -146,6 +162,11 @@ func (sc *ShardCtrler) killed() bool {
 	return z == 1
 }
 
+func (sc *ShardCtrler) Restart() {
+	atomic.StoreInt32(&sc.dead, 0)
+	sc.rf.Restart()
+}
+
 //// Raft needed by shardkv tester
 //func (sc *ShardCtrler) Raft() *raft.Raft {
 //	return sc.rf
@@ -194,7 +215,13 @@ func (sc *ShardCtrler) StartServer(persister *raft.Persister, servers []*rpc.Cli
 
 	rpc.RegisterName("Raft", sc.rf)
 	go sc.applyTask()
-	for !sc.killed() {
+	//for !sc.killed() {
+	//	time.Sleep(5 * time.Second)
+	//}
+	for {
+		if sc.killed() {
+			fmt.Println("down down down.....")
+		}
 		time.Sleep(5 * time.Second)
 	}
 }
@@ -202,6 +229,7 @@ func (sc *ShardCtrler) StartServer(persister *raft.Persister, servers []*rpc.Cli
 // 处理 apply 任务
 func (sc *ShardCtrler) applyTask() {
 	for !sc.killed() {
+		fmt.Println("xxxx")
 		select {
 		case message := <-sc.applyCh:
 			if message.CommandValid {

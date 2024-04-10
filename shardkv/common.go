@@ -49,11 +49,19 @@ type GetReply struct {
 	Value string
 }
 
+//const (
+//	ClientRequestTimeout   = 500 * time.Millisecond
+//	FetchConfigInterval    = 100 * time.Millisecond
+//	ShardMigrationInterval = 50 * time.Millisecond
+//	ShardGCInterval        = 50 * time.Millisecond
+//)
+
+// For show
 const (
-	ClientRequestTimeout   = 500 * time.Millisecond
-	FetchConfigInterval    = 100 * time.Millisecond
-	ShardMigrationInterval = 50 * time.Millisecond
-	ShardGCInterval        = 50 * time.Millisecond
+	ClientRequestTimeout   = 3000 * time.Millisecond
+	FetchConfigInterval    = 1000 * time.Millisecond
+	ShardMigrationInterval = 500 * time.Millisecond
+	ShardGCInterval        = 500 * time.Millisecond
 )
 
 const Debug = false

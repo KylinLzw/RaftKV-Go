@@ -13,7 +13,10 @@ const (
 	ErrTimeout     = "ErrTimeout"
 )
 
-const ClientRequestTimeout = 500 * time.Millisecond
+//const ClientRequestTimeout = 500 * time.Millisecond
+
+// for show
+const ClientRequestTimeout = 3000 * time.Millisecond
 
 const Debug = false
 

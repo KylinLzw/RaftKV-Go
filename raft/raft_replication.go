@@ -7,6 +7,7 @@ startReplication：对各个节点的日志同步请求，处理响应
 */
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -40,9 +41,9 @@ type AppendEntriesReply struct {
 }
 
 func (args *AppendEntriesArgs) String() string {
-	return fmt.Sprintf("Leader-%d, T%d, Prev:[%d]T%d, (%d, %d], CommitIdx: %d",
+	return fmt.Sprintf("Leader:%d T%d, Prev:[%d]T%d, New:[%d, %d], CommitIdx: %d",
 		args.LeaderId, args.Term, args.PrevLogIndex, args.PrevLogTerm,
-		args.PrevLogIndex, args.PrevLogIndex+len(args.Entries), args.LeaderCommit)
+		args.PrevLogIndex+1, args.PrevLogIndex+len(args.Entries), args.LeaderCommit)
 }
 
 func (reply *AppendEntriesReply) String() string {
@@ -53,6 +54,11 @@ func (reply *AppendEntriesReply) String() string {
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) error {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
+
+	if rf.killed() {
+		return errors.New("peer is down")
+	}
+
 	MyLog(rf.me, rf.currentTerm, DDebug, "<- S%d, Appended, Args=%v", args.LeaderId, args.String())
 
 	reply.Term = rf.currentTerm
@@ -99,9 +105,12 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	// append the leader log entries to local
 	reply.Success = true
 
-	rf.log.appendFrom(args.PrevLogIndex, args.Entries)
-	MyLog(rf.me, rf.currentTerm, DRLog, "\033[32mFollower accept logs: [%d, %d)\033[0m", args.PrevLogIndex+1, args.PrevLogIndex+1+len(args.Entries))
-	rf.persistLocked()
+	if len(args.Entries) != 0 {
+		rf.log.appendFrom(args.PrevLogIndex, args.Entries)
+		MyLog(rf.me, rf.currentTerm, DRLog, "\033[32mFollower accept logs: [%d, %d]\033[0m", args.PrevLogIndex+1, args.PrevLogIndex+len(args.Entries))
+		MyLog(rf.me, rf.currentTerm, DRLog, "<- S%d, Appended, Args=%v", args.LeaderId, args.String())
+		rf.persistLocked()
+	}
 
 	// hanle LeaderCommit
 	if args.LeaderCommit > rf.commitIndex {
@@ -138,7 +147,7 @@ func (rf *Raft) startReplication(term int) bool {
 		rf.mu.Lock()
 		defer rf.mu.Unlock()
 		if !ok {
-			MyLog(rf.me, rf.currentTerm, DSLog, "-> S%d, Lost or crashed", peer)
+			MyLog(rf.me, rf.currentTerm, DSLog, "-> S%d, peer is down", peer)
 			return
 		}
 		MyLog(rf.me, rf.currentTerm, DDebug, "-> S%d, Append, Reply=%v", peer, reply.String())
