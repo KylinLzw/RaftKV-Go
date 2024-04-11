@@ -25,7 +25,6 @@ const (
 	DLeader  logTopic = "LEAD"
 	DSLog    logTopic = "SLOG" // sending log
 	DRLog    logTopic = "RLOG" // receiving log
-	DLog     logTopic = "xxxx" // receiving log
 	DPersist logTopic = "PERS"
 	DSnap    logTopic = "SNAP"
 	DTerm    logTopic = "TERM"

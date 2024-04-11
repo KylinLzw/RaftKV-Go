@@ -21,6 +21,7 @@ func DefaultConfig() Config {
 }
 
 func (csm *CtrlerStateMachine) Query(num int) (Config, Err) {
+	MyLog(-1, DMachine, "\033[35mApply Query to State_machine\033[0m")
 	if num < 0 || num >= len(csm.Configs) {
 		return csm.Configs[len(csm.Configs)-1], OK
 	}
@@ -29,6 +30,7 @@ func (csm *CtrlerStateMachine) Query(num int) (Config, Err) {
 
 // Join 加入新的 Group 到集群中，需要处理加入之后的负载均衡问题
 func (csm *CtrlerStateMachine) Join(groups map[int][]string) Err {
+
 	num := len(csm.Configs)
 	lastConfig := csm.Configs[num-1]
 	// 构建新的配置
@@ -103,11 +105,13 @@ func (csm *CtrlerStateMachine) Join(groups map[int][]string) Err {
 	}
 	newConfig.Shards = newShards
 	csm.Configs = append(csm.Configs, newConfig)
+	MyLog(-1, DMachine, "\033[35mApply Join to State_machine\033[0m")
 
 	return OK
 }
 
 func (csm *CtrlerStateMachine) Leave(gids []int) Err {
+
 	num := len(csm.Configs)
 	lastConfig := csm.Configs[num-1]
 	// 构建新的配置
@@ -159,6 +163,8 @@ func (csm *CtrlerStateMachine) Leave(gids []int) Err {
 	// 将配置保存
 	newConfig.Shards = newShards
 	csm.Configs = append(csm.Configs, newConfig)
+	MyLog(-1, DMachine, "\033[35mApply Leave to State_machine\033[m")
+
 	return OK
 }
 
@@ -174,6 +180,8 @@ func (csm *CtrlerStateMachine) Move(shardid, gid int) Err {
 
 	newConfig.Shards[shardid] = gid
 	csm.Configs = append(csm.Configs, newConfig)
+	MyLog(-1, DMachine, "\033[35mApply Move to State_machine\033[0m")
+
 	return OK
 }
 

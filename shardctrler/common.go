@@ -2,7 +2,6 @@ package shardctrler
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"time"
 )
@@ -29,6 +28,7 @@ const (
 	ErrNoKey       = "ErrNoKey"
 	ErrWrongLeader = "ErrWrongLeader"
 	ErrTimeout     = "ErrTimeout"
+	ErrServerDown  = "ErrServerDown"
 )
 
 type Err string
@@ -98,15 +98,6 @@ type QueryReply struct {
 // For show
 const ClientRequestTimeout = 3000 * time.Millisecond
 
-const Debug = false
-
-func DPrintf(format string, a ...interface{}) (n int, err error) {
-	if Debug {
-		log.Printf(format, a...)
-	}
-	return
-}
-
 type Op struct {
 	// Field names must start with capital letters,
 	// otherwise RPC will break.
@@ -141,6 +132,7 @@ type LastOperationInfo struct {
 
 // String 方法将 Config 结构体格式化为字符串
 func (c Config) String() string {
+
 	var builder strings.Builder
 	builder.WriteString(fmt.Sprintf("Config #%d {\n", c.Num))
 	for i, gid := range c.Shards {

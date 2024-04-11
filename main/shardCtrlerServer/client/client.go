@@ -45,7 +45,6 @@ func main() {
 			servers[gid] = append(servers[gid], os.Args[i])
 		}
 		client.Join(servers)
-		fmt.Println("OK")
 	case "Leave":
 		gid := make([]int, len(os.Args)-2)
 		for i := 2; i < len(os.Args); i++ {
@@ -53,24 +52,20 @@ func main() {
 			gid[i-2] = id
 		}
 		client.Leave(gid)
-		fmt.Println("OK")
 	case "Move":
 		shard, _ := strconv.Atoi(os.Args[2])
 		gid, _ := strconv.Atoi(os.Args[3])
 		client.Move(shard, gid)
-		fmt.Println("OK")
 	case "Query":
 		num := -1
 		num, _ = strconv.Atoi(os.Args[2])
-		fmt.Println(client.Query(num).String())
+		client.Query(num).String()
 	case "Kill":
 		num, _ := strconv.Atoi(os.Args[2])
-		ok := client.Kill(num)
-		fmt.Println(ok)
+		fmt.Println(client.Kill(num))
 	case "Restart":
 		num, _ := strconv.Atoi(os.Args[2])
-		ok := client.Restart(num)
-		fmt.Println(ok)
+		fmt.Println(client.Restart(num))
 	default:
 		fmt.Println(".....输入指令有误.....")
 		fmt.Println("Kill num")

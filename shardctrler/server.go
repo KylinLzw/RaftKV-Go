@@ -49,11 +49,13 @@ func (sc *ShardCtrler) KillServer(args *KillArgs, reply *KillReply) error {
 	sc.Kill()
 	return nil
 }
+
 func (sc *ShardCtrler) RestartServer(args *RestartArgs, reply *RestartReply) error {
 	if sc.dead != 1 {
 		return errors.New("server is running")
 	}
 	sc.Restart()
+	MyLog(sc.me, DInfo, "\033[35mShardCtrler Restart.....\033[0m")
 	return nil
 }
 
@@ -114,6 +116,11 @@ func (sc *ShardCtrler) Query(args *QueryArgs, reply *QueryReply) error {
 
 func (sc *ShardCtrler) command(args Op, reply *OpReply) {
 	sc.mu.Lock()
+	if sc.killed() {
+		reply.Err = ErrServerDown
+		sc.mu.Unlock()
+		return
+	}
 	if args.OpType != OpQuery && sc.requestDuplicated(args.ClientId, args.SeqId) {
 		// 如果是重复请求，直接返回结果
 		opReply := sc.duplicateTable[args.ClientId].Reply
@@ -167,11 +174,6 @@ func (sc *ShardCtrler) Restart() {
 	sc.rf.Restart()
 }
 
-//// Raft needed by shardkv tester
-//func (sc *ShardCtrler) Raft() *raft.Raft {
-//	return sc.rf
-//}
-
 func StartServer(servers []*rpc.Client, me int, persister *raft.Persister) *ShardCtrler {
 	sc := new(ShardCtrler)
 	sc.me = me
@@ -211,6 +213,7 @@ func NewshardctrlerServer(me int) *ShardCtrler {
 }
 
 func (sc *ShardCtrler) StartServer(persister *raft.Persister, servers []*rpc.Client) {
+	MyLog(sc.me, DInfo, "\033[35mShardCtrler Start.....\033[0m")
 	sc.rf = raft.Make(servers, sc.me, persister, sc.applyCh)
 
 	rpc.RegisterName("Raft", sc.rf)
@@ -220,7 +223,7 @@ func (sc *ShardCtrler) StartServer(persister *raft.Persister, servers []*rpc.Cli
 	//}
 	for {
 		if sc.killed() {
-			fmt.Println("down down down.....")
+			fmt.Println("\033[35mdown down down.....\033[0m")
 		}
 		time.Sleep(5 * time.Second)
 	}
@@ -229,7 +232,6 @@ func (sc *ShardCtrler) StartServer(persister *raft.Persister, servers []*rpc.Cli
 // 处理 apply 任务
 func (sc *ShardCtrler) applyTask() {
 	for !sc.killed() {
-		fmt.Println("xxxx")
 		select {
 		case message := <-sc.applyCh:
 			if message.CommandValid {

@@ -15,7 +15,7 @@ import (
 /*
 启动三个节点：
   go run server.go -port 7000 -id 0
-  go run server.go -port 7001 -id 1
+  go run server.go -port 7000 -id 0
   go run server.go -port 7002 -id 2
 */
 

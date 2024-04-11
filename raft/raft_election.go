@@ -39,6 +39,7 @@ func (rf *Raft) isMoreUpToDateLocked(candidateIndex, candidateTerm int) bool {
 
 // 检测是否发起选举
 func (rf *Raft) electionTicker() {
+	rf.continuousEleNum = 1
 	for !rf.killed() {
 
 		// Check if a leader election should be started.
@@ -50,6 +51,12 @@ func (rf *Raft) electionTicker() {
 			// PreVote
 			rf.becomePreCandidateLocked()
 			go rf.startCandidate(rf.currentTerm)
+			if rf.role == PreCandidate {
+				rf.continuousEleNum++
+				//if rf.continuousEleNum > 5 {
+				//	rf.Kill()
+				//}
+			}
 		}
 		rf.mu.Unlock()
 
@@ -58,7 +65,7 @@ func (rf *Raft) electionTicker() {
 
 		// For show
 		ms := 500 + (rand.Int63() % 1000)
-		time.Sleep(time.Duration(ms) * time.Millisecond)
+		time.Sleep(time.Duration(ms*rf.continuousEleNum) * time.Millisecond)
 	}
 }
 

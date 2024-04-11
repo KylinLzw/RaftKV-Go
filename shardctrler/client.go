@@ -70,7 +70,6 @@ func (ck *Clerk) Restart(num int) bool {
 // Query ：询问当前 shardKV 的配置信息
 func (ck *Clerk) Query(num int) Config {
 	args := &QueryArgs{}
-
 	args.Num = num
 	for {
 		// try each known server.
@@ -80,14 +79,17 @@ func (ck *Clerk) Query(num int) Config {
 		if err != nil {
 			fmt.Println(ck.leaderId, "-> RPC err:", err)
 		}
-		if reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
-			fmt.Println(ck.leaderId, "-> reply err:", reply.Err)
-		}
+		fmt.Println(ck.leaderId, "-> ", reply.Err)
 
-		if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
+		if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout || reply.Err == ErrServerDown {
+			if ck.leaderId == len(ck.servers)-1 {
+				fmt.Println("服务集群不可用，请稍后重新尝试.....")
+				return Config{}
+			}
 			ck.leaderId = (ck.leaderId + 1) % len(ck.servers)
 			continue
 		}
+		fmt.Println(reply.Config.String())
 		return reply.Config
 	}
 }
@@ -104,11 +106,13 @@ func (ck *Clerk) Join(servers map[int][]string) {
 		if err != nil {
 			fmt.Println(ck.leaderId, "-> RPC err:", err)
 		}
-		if reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
-			fmt.Println(ck.leaderId, "-> reply err:", reply.Err)
-		}
+		fmt.Println(ck.leaderId, "-> ", reply.Err)
 
-		if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
+		if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout || reply.Err == ErrServerDown {
+			if ck.leaderId == len(ck.servers)-1 {
+				fmt.Println("服务集群不可用，请稍后重新尝试.....")
+				return
+			}
 			ck.leaderId = (ck.leaderId + 1) % len(ck.servers)
 			continue
 		}
@@ -130,11 +134,13 @@ func (ck *Clerk) Leave(gids []int) {
 		if err != nil {
 			fmt.Println(ck.leaderId, "-> RPC err:", err)
 		}
-		if reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
-			fmt.Println(ck.leaderId, "-> reply err:", reply.Err)
-		}
+		fmt.Println(ck.leaderId, "-> ", reply.Err)
 
-		if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
+		if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout || reply.Err == ErrServerDown {
+			if ck.leaderId == len(ck.servers)-1 {
+				fmt.Println("服务集群不可用，请稍后重新尝试.....")
+				return
+			}
 			ck.leaderId = (ck.leaderId + 1) % len(ck.servers)
 			continue
 		}
@@ -157,11 +163,13 @@ func (ck *Clerk) Move(shard int, gid int) {
 		if err != nil {
 			fmt.Println(ck.leaderId, "-> RPC err:", err)
 		}
-		if reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
-			fmt.Println(ck.leaderId, "-> reply err:", reply.Err)
-		}
+		fmt.Println(ck.leaderId, "-> ", reply.Err)
 
-		if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
+		if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout || reply.Err == ErrServerDown {
+			if ck.leaderId == len(ck.servers)-1 {
+				fmt.Println("服务集群不可用，请稍后重新尝试.....")
+				return
+			}
 			ck.leaderId = (ck.leaderId + 1) % len(ck.servers)
 			continue
 		}

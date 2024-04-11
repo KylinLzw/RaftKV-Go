@@ -61,8 +61,9 @@ type Raft struct {
 	snapPending bool
 	applyCond   *sync.Cond
 
-	electionStart   time.Time
-	electionTimeout time.Duration // random
+	electionStart    time.Time
+	electionTimeout  time.Duration // random
+	continuousEleNum int64
 }
 
 func Make(peers []*rpc.Client, me int, persister *Persister, applyCh chan ApplyMsg) *Raft {
@@ -88,6 +89,7 @@ func Make(peers []*rpc.Client, me int, persister *Persister, applyCh chan ApplyM
 	rf.commitIndex = 0
 	rf.lastApplied = 0
 	rf.snapPending = false
+	rf.continuousEleNum = 1
 
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
@@ -105,6 +107,9 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 
+	if rf.killed() {
+		return 0, 0, false
+	}
 	if rf.role != Leader {
 		MyLog(rf.me, rf.currentTerm, DError, "\033[31mNot leader, can't make Start\033[0m")
 		return 0, 0, false
@@ -131,6 +136,9 @@ func (rf *Raft) becomeFollowerLocked(term int) {
 
 	MyLog(rf.me, rf.currentTerm, DROLE,
 		"role: %s -> Follower, term: %v->%v", rf.role, rf.currentTerm, term)
+	if rf.role != PreCandidate {
+		rf.continuousEleNum = 1
+	}
 	rf.role = Follower
 	shouldPersit := rf.currentTerm != term
 	if term > rf.currentTerm {
@@ -160,7 +168,7 @@ func (rf *Raft) becomeCandidateLocked() {
 		MyLog(rf.me, rf.currentTerm, DError, "%s can't become Candidate", rf.role)
 		return
 	}
-
+	rf.continuousEleNum = 1
 	MyLog(rf.me, rf.currentTerm, DROLE,
 		"role: %s -> Candidate, term: %v -> %v", rf.role, rf.currentTerm, rf.currentTerm+1)
 
@@ -178,7 +186,7 @@ func (rf *Raft) becomeLeaderLocked() {
 
 	MyLog(rf.me, rf.currentTerm, DROLE,
 		"\033[32mrole: %s -> Leader, in term: %v\033[0m", rf.role, rf.currentTerm)
-
+	rf.continuousEleNum = 1
 	rf.role = Leader
 	for peer := 0; peer < len(rf.peers); peer++ {
 		rf.nextIndex[peer] = rf.log.size()
