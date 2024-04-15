@@ -71,25 +71,27 @@ func (ck *Clerk) Restart(num int) bool {
 func (ck *Clerk) Query(num int) Config {
 	args := &QueryArgs{}
 	args.Num = num
+	var cnt = 0
 	for {
 		// try each known server.
 		var reply QueryReply
 		err := ck.servers[ck.leaderId].Call("ShardCtrler.Query", args, &reply)
 
 		if err != nil {
-			fmt.Println(ck.leaderId, "-> RPC err:", err)
+			fmt.Println("query->S", ck.leaderId, ": RPC err:", err)
 		}
-		fmt.Println(ck.leaderId, "-> ", reply.Err)
+		fmt.Println("query->S", ck.leaderId, ": ", reply.Err)
 
 		if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout || reply.Err == ErrServerDown {
-			if ck.leaderId == len(ck.servers)-1 {
+			if cnt > 5 {
 				fmt.Println("服务集群不可用，请稍后重新尝试.....")
 				return Config{}
 			}
 			ck.leaderId = (ck.leaderId + 1) % len(ck.servers)
+			cnt++
 			continue
 		}
-		fmt.Println(reply.Config.String())
+		MyLog(-1, DDebug, reply.Config.String())
 		return reply.Config
 	}
 }
@@ -99,21 +101,23 @@ func (ck *Clerk) Join(servers map[int][]string) {
 	args := &JoinArgs{ClientId: ck.clientId, SeqId: ck.seqId}
 	args.Servers = servers
 
+	var cnt int = 0
 	for {
 		var reply JoinReply
 		err := ck.servers[ck.leaderId].Call("ShardCtrler.Join", args, &reply)
 
 		if err != nil {
-			fmt.Println(ck.leaderId, "-> RPC err:", err)
+			fmt.Println("Join->S", ck.leaderId, ": RPC err:", err)
 		}
-		fmt.Println(ck.leaderId, "-> ", reply.Err)
+		fmt.Println("Join->S", ck.leaderId, ": ", reply.Err)
 
 		if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout || reply.Err == ErrServerDown {
-			if ck.leaderId == len(ck.servers)-1 {
+			if cnt > 5 {
 				fmt.Println("服务集群不可用，请稍后重新尝试.....")
 				return
 			}
 			ck.leaderId = (ck.leaderId + 1) % len(ck.servers)
+			cnt++
 			continue
 		}
 		ck.seqId++
@@ -125,23 +129,24 @@ func (ck *Clerk) Join(servers map[int][]string) {
 func (ck *Clerk) Leave(gids []int) {
 	args := &LeaveArgs{ClientId: ck.clientId, SeqId: ck.seqId}
 	args.GIDs = gids
-
+	var cnt int = 0
 	for {
 		// try each known server.
 		var reply LeaveReply
 		err := ck.servers[ck.leaderId].Call("ShardCtrler.Leave", args, &reply)
 
 		if err != nil {
-			fmt.Println(ck.leaderId, "-> RPC err:", err)
+			fmt.Println("Leave->S", ck.leaderId, ": RPC err:", err)
 		}
-		fmt.Println(ck.leaderId, "-> ", reply.Err)
+		fmt.Println("Leave->S", ck.leaderId, ": ", reply.Err)
 
 		if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout || reply.Err == ErrServerDown {
-			if ck.leaderId == len(ck.servers)-1 {
+			if cnt > 5 {
 				fmt.Println("服务集群不可用，请稍后重新尝试.....")
 				return
 			}
 			ck.leaderId = (ck.leaderId + 1) % len(ck.servers)
+			cnt++
 			continue
 		}
 		ck.seqId++
@@ -154,23 +159,24 @@ func (ck *Clerk) Move(shard int, gid int) {
 	args := &MoveArgs{ClientId: ck.clientId, SeqId: ck.seqId}
 	args.Shard = shard
 	args.GID = gid
-
+	var cnt int = 0
 	for {
 		// try each known server.
 		var reply MoveReply
 		err := ck.servers[ck.leaderId].Call("ShardCtrler.Move", args, &reply)
 
 		if err != nil {
-			fmt.Println(ck.leaderId, "-> RPC err:", err)
+			fmt.Println("Move->S", ck.leaderId, ": RPC err:", err)
 		}
-		fmt.Println(ck.leaderId, "-> ", reply.Err)
+		fmt.Println("Move->S", ck.leaderId, ": ", reply.Err)
 
 		if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout || reply.Err == ErrServerDown {
-			if ck.leaderId == len(ck.servers)-1 {
+			if cnt > 5 {
 				fmt.Println("服务集群不可用，请稍后重新尝试.....")
 				return
 			}
 			ck.leaderId = (ck.leaderId + 1) % len(ck.servers)
+			cnt++
 			continue
 		}
 		ck.seqId++

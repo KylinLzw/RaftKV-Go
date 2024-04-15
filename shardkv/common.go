@@ -23,6 +23,7 @@ const (
 	ErrTimeout     = "ErrTimeout"
 	ErrWrongConfig = "ErrWrongConfig"
 	ErrNotReady    = "ErrNotReady"
+	ErrServerDown  = "ErrServerDown"
 )
 
 type Err string
@@ -58,10 +59,10 @@ type GetReply struct {
 
 // For show
 const (
-	ClientRequestTimeout   = 3000 * time.Millisecond
-	FetchConfigInterval    = 1000 * time.Millisecond
-	ShardMigrationInterval = 500 * time.Millisecond
-	ShardGCInterval        = 500 * time.Millisecond
+	ClientRequestTimeout   = 5000 * time.Millisecond
+	FetchConfigInterval    = 2000 * time.Millisecond
+	ShardMigrationInterval = 1000 * time.Millisecond
+	ShardGCInterval        = 1000 * time.Millisecond
 )
 
 const Debug = false
@@ -155,4 +156,20 @@ type ShardOperationReply struct {
 	ConfigNum      int
 	ShardData      map[int]map[string]string
 	DuplicateTable map[int64]LastOperationInfo
+}
+
+type KillArgs struct {
+	ServerId int
+}
+
+type KillReply struct {
+	Err Err
+}
+
+type RestartArgs struct {
+	ServerId int
+}
+
+type RestartReply struct {
+	Err Err
 }

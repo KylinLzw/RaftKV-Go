@@ -17,9 +17,10 @@ import (
 
 var commandList = [][]string{
 	{"SET", "key value", "STRING"},
+	{"APPEND", "key value", "STRING"},
 	{"GET", "key", "STRING"},
-	{"SETNX", "key seconds value", "STRING"},
 
+	{"QUIT"},
 	{"PING"},
 	{"AUTH"},
 }
@@ -79,9 +80,6 @@ func (c *Client) configureLiner() {
 	if file, err := os.Open(history_fn); err == nil {
 		//先从文件中读取之前的历史记录
 		c.line.ReadHistory(file)
-
-		fmt.Printf("历史数据加载成功.....\n")
-
 		//关闭文件
 		file.Close()
 	}
@@ -115,7 +113,7 @@ func (c *Client) StartClient() {
 	}
 }
 
-// 结束的时候进行命令历史的文件写入(下一次可以直接从文件中恢复)
+// 结束的时候进行命令历史的文件写入
 func (c *Client) writeLineHistory() {
 	if file, err := os.Create(history_fn); err == nil {
 		//写到文件中
@@ -199,7 +197,6 @@ func main() {
 		fmt.Println("连接服务器失败")
 		return
 	}
-
 	fmt.Printf("服务器连接成功.....\n")
 
 	client.StartClient()

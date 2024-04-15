@@ -14,9 +14,9 @@ import (
 
 /*
 启动三个节点：
-  go run server.go -port 8005 -id 0
-  go run server.go -port 8006 -id 1
-  go run server.go -port 8007 -id 2
+  go run server.go -port 8005 -id 0 -gid 2
+  go run server.go -port 8006 -id 1 -gid 2
+  go run server.go -port 8007 -id 2 -gid 2
 */
 
 // 服务节点信息
@@ -34,9 +34,9 @@ var serverGid int
 // 默认节点信息
 func init() {
 	flag.StringVar(&serverIp, "ip", "127.0.0.1", "server的ip")
-	flag.IntVar(&serverPort, "port", 8005, "server的端口")
+	flag.IntVar(&serverPort, "port", 8000, "server的端口")
 	flag.IntVar(&serverNum, "id", 0, "该server在Raft组中的编号")
-	flag.IntVar(&serverGid, "gid", 2, "该server所在的gid编号")
+	flag.IntVar(&serverGid, "gid", 1, "该server所在的gid编号")
 }
 
 // shardctrler 节点信息

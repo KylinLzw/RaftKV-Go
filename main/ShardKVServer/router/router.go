@@ -16,11 +16,12 @@ import (
 type CommandType string
 
 const (
-	GET  = "get"
-	PING = "ping"
-	SET  = "set"
-	QUIT = "quit"
-	AUTH = "auth"
+	GET    = "get"
+	SET    = "set"
+	APPEND = "append"
+	QUIT   = "quit"
+	PING   = "ping"
+	AUTH   = "auth"
 )
 
 type Router struct {
@@ -83,7 +84,7 @@ func (r *Router) StartRouter() {
 			for _, arg := range cmd.Args {
 				cmdStr += string(arg) + " "
 			}
-			r.log("接收到address: %v,command: %v", conn.RemoteAddr(), cmdStr)
+			r.log("接收到客户端: %v,command: %v", conn.RemoteAddr(), cmdStr)
 			r.handleCmd(conn, cmd)
 		},
 		func(conn redcon.Conn) bool {
@@ -138,19 +139,26 @@ func (r *Router) handleCmd(conn redcon.Conn, cmd redcon.Command) {
 				return
 			}
 			//2.若正确,则应用命令
-			r.clerk.Put(string(cmd.Args[1]), string(cmd.Args[2]))
-			conn.WriteString("OK")
+			value := r.clerk.Put(string(cmd.Args[1]), string(cmd.Args[2]))
+			conn.WriteBulk([]byte(value))
+		case APPEND:
+			//若是set命令
+			//1.判断参数个数是否正确
+			if len(cmd.Args) != 3 {
+				conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+				return
+			}
+			//2.若正确,则应用命令
+			value := r.clerk.Append(string(cmd.Args[1]), string(cmd.Args[2]))
+			conn.WriteBulk([]byte(value))
 		case GET:
 			//1.判断命令是否合规
 			if len(cmd.Args) != 2 {
 				conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
 				return
 			}
-			fmt.Println("router Get...")
 			//2.若正确,则应用命令
-			r.log("接收到Get请求 : ", string(cmd.Args[0]), string(cmd.Args[1]))
 			value := r.clerk.Get(string(cmd.Args[1]))
-			r.log("获取Get请求结果", value)
 
 			if value == "" {
 				conn.WriteNull()
@@ -169,12 +177,11 @@ func (r *Router) handleCmd(conn redcon.Conn, cmd redcon.Command) {
 			conn.WriteError("ERR unknown command '" + string(cmd.Args[0]) + "'")
 		}
 	}
-
 }
 
 // 当连接接收的时候调用
 func (r *Router) acceptConn(conn redcon.Conn) bool {
-	r.log("接收到连接: %v\n", conn.RemoteAddr())
+	r.log("接收到客户端连接: %v\n", conn.RemoteAddr())
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	//加入到连接列表中
@@ -189,7 +196,7 @@ func (r *Router) closeConn(conn redcon.Conn, err error) {
 	if _, ok := r.conns[conn.RemoteAddr()]; ok {
 		delete(r.conns, conn.RemoteAddr())
 	}
-	r.log("关闭连接: %v\n", conn.RemoteAddr())
+	r.log("关闭客户端连接: %v\n", conn.RemoteAddr())
 }
 
 //=====================================================================================
@@ -217,7 +224,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("router: 创建router错误,err: %v\n", err)
 	}
-	log.Printf("开始服务,当前地址是: %s:%d,kvserver组的地址是:\n%v\n", ip, port, address)
+	log.Printf("开始服务.....\nrouter: %s:%d \nserver:%v\n", ip, port, address)
 	//启动router
 	router.StartRouter()
 }

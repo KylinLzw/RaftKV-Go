@@ -70,7 +70,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		return nil
 	}
 	if args.Term >= rf.currentTerm {
-		MyLog(rf.me, rf.currentTerm, DRLog, "receive replication from S%d", args.LeaderId)
+		MyLog(rf.me, rf.currentTerm, DDebug, "receive replication from S%d", args.LeaderId)
 		rf.becomeFollowerLocked(args.Term)
 	}
 
@@ -147,7 +147,7 @@ func (rf *Raft) startReplication(term int) bool {
 		rf.mu.Lock()
 		defer rf.mu.Unlock()
 		if !ok {
-			MyLog(rf.me, rf.currentTerm, DSLog, "-> S%d, peer is down", peer)
+			MyLog(rf.me, rf.currentTerm, DDebug, "-> S%d, peer is down", peer)
 			return
 		}
 		MyLog(rf.me, rf.currentTerm, DDebug, "-> S%d, Append, Reply=%v", peer, reply.String())

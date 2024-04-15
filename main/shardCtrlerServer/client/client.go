@@ -5,6 +5,8 @@ go build -o client
 ./client Join 1 127.0.0.1:8000 127.0.0.1:8001 127.0.0.1:8002
 ./client Join 2 127.0.0.1:8005 127.0.0.1:8006 127.0.0.1:8007
 ./client Query -1
+./client Move 0 1
+./client Leave 1
 */
 
 import (
@@ -59,7 +61,7 @@ func main() {
 	case "Query":
 		num := -1
 		num, _ = strconv.Atoi(os.Args[2])
-		client.Query(num).String()
+		fmt.Println(client.Query(num).String())
 	case "Kill":
 		num, _ := strconv.Atoi(os.Args[2])
 		fmt.Println(client.Kill(num))

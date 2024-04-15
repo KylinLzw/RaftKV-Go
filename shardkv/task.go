@@ -57,7 +57,6 @@ func (kv *ShardKV) fetchConfigTask() {
 	for !kv.killed() {
 
 		if _, isLeader := kv.rf.GetState(); isLeader {
-
 			needFetch := true
 			kv.mu.Lock()
 			// 如果有 shard 的状态是非 Normal 的，则说明前一个配置变更的任务正在进行中
@@ -69,7 +68,6 @@ func (kv *ShardKV) fetchConfigTask() {
 			}
 			currentNum := kv.currentConfig.Num
 			kv.mu.Unlock()
-
 			if needFetch {
 				newConfig := kv.mck.Query(currentNum + 1)
 				// 传入 raft 模块进行同步
@@ -93,7 +91,9 @@ func (kv *ShardKV) shardMigrationTask() {
 			gidToShards := kv.getShardByStatus(MoveIn)
 			var wg sync.WaitGroup
 			for gid, shardIds := range gidToShards {
+
 				wg.Add(1)
+
 				go func(servers []string, configNum int, shardIds []int) {
 					defer wg.Done()
 					// 遍历该 Group 中每一个节点，然后从 Leader 中读取到对应的 shard 数据
@@ -123,6 +123,7 @@ func (kv *ShardKV) shardGCTask() {
 	for !kv.killed() {
 
 		if _, isLeader := kv.rf.GetState(); isLeader {
+
 			kv.mu.Lock()
 			gidToShards := kv.getShardByStatus(GC)
 			var wg sync.WaitGroup
@@ -283,9 +284,11 @@ func (kv *ShardKV) handleConfigChangeMessage(command RaftCommand) *OpReply {
 		return kv.applyNewConfig(newConfig)
 	case ShardMigration:
 		shardData := command.Data.(ShardOperationReply)
+
 		return kv.applyShardMigration(&shardData)
 	case ShardGC:
 		shardsInfo := command.Data.(ShardOperationArgs)
+
 		return kv.applyShardGC(&shardsInfo)
 	default:
 		panic("unknown config change type")
@@ -297,6 +300,7 @@ func (kv *ShardKV) applyNewConfig(newConfig shardctrler.Config) *OpReply {
 		for i := 0; i < shardctrler.NShards; i++ {
 			if kv.currentConfig.Shards[i] != kv.gid && newConfig.Shards[i] == kv.gid {
 				//	shard 需要迁移进来
+
 				gid := kv.currentConfig.Shards[i]
 				if gid != 0 {
 					kv.shards[i].Status = MoveIn
@@ -304,6 +308,7 @@ func (kv *ShardKV) applyNewConfig(newConfig shardctrler.Config) *OpReply {
 			}
 			if kv.currentConfig.Shards[i] == kv.gid && newConfig.Shards[i] != kv.gid {
 				// shard 需要迁移出去
+
 				gid := newConfig.Shards[i]
 				if gid != 0 {
 					kv.shards[i].Status = MoveOut

@@ -134,7 +134,7 @@ func (rf *Raft) becomeFollowerLocked(term int) {
 		return
 	}
 
-	MyLog(rf.me, rf.currentTerm, DROLE,
+	MyLog(rf.me, rf.currentTerm, DDebug,
 		"role: %s -> Follower, term: %v->%v", rf.role, rf.currentTerm, term)
 	if rf.role != PreCandidate {
 		rf.continuousEleNum = 1

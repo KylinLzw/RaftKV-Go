@@ -14,9 +14,9 @@ import (
 
 /*
 启动三个节点：
-  go run server.go -port 8000 -id 0
-  go run server.go -port 8001 -id 1
-  go run server.go -port 8002 -id 2
+  go run server.go -port 8000 -id 0 - gid 1
+  go run server.go -port 8001 -id 1 - gid 1
+  go run server.go -port 8002 -id 2 - gid 1
 */
 
 // 服务节点信息

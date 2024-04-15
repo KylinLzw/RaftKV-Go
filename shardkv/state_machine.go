@@ -17,6 +17,8 @@ func NewMemoryKVStateMachine() *MemoryKVStateMachine {
 }
 
 func (mkv *MemoryKVStateMachine) Get(key string) (string, Err) {
+	MyLog(-1, DMachine, "\033[35mApply Get to State_machine\033[0m")
+
 	if value, ok := mkv.KV[key]; ok {
 		return value, OK
 	}
@@ -24,11 +26,15 @@ func (mkv *MemoryKVStateMachine) Get(key string) (string, Err) {
 }
 
 func (mkv *MemoryKVStateMachine) Put(key, value string) Err {
+	MyLog(-1, DMachine, "\033[35mApply Put to State_machine\033[0m")
+
 	mkv.KV[key] = value
 	return OK
 }
 
 func (mkv *MemoryKVStateMachine) Append(key, value string) Err {
+	MyLog(-1, DMachine, "\033[35mApply Append to State_machine\033[0m")
+
 	mkv.KV[key] += value
 	return OK
 }

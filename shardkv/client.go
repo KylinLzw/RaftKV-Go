@@ -65,41 +65,76 @@ func MakeClerk(ctrlers []*rpc.Client, make_end func(string) *rpc.Client) *Clerk 
 	return ck
 }
 
+// Kill for test：关闭某个结点的服务
+func (ck *Clerk) Kill(gid int, num int) bool {
+	ck.config = ck.sm.Query(-1)
+	args := &KillArgs{}
+	var reply KillReply
+	args.ServerId = num
+
+	server := ck.config.Groups[gid][args.ServerId]
+	srv := ck.make_end(server)
+	err := srv.Call("ShardKV.KillServer", &args, &reply)
+
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+	return true
+}
+
+// Restart for test：重启某个结点的服务
+func (ck *Clerk) Restart(gid int, num int) bool {
+	ck.config = ck.sm.Query(-1)
+	args := &RestartArgs{}
+	var reply RestartReply
+	args.ServerId = num
+
+	server := ck.config.Groups[gid][args.ServerId]
+	srv := ck.make_end(server)
+	err := srv.Call("ShardKV.RestartServer", &args, &reply)
+
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+	return true
+}
+
 // Get fetch the current value for a key.
 // returns "" if the key does not exist.
 // keeps trying forever in the face of all other errors.
 func (ck *Clerk) Get(key string) string {
 	args := GetArgs{}
 	args.Key = key
-
+	var cnt = 0
 	for {
 
 		shard := key2shard(key)
 		gid := ck.config.Shards[shard]
+		fmt.Println("gid:", gid, "shard:", shard)
 		if servers, ok := ck.config.Groups[gid]; ok {
 			// try each server for the shard.
 			if _, exist := ck.leaderIds[gid]; !exist {
 				ck.leaderIds[gid] = 0
 			}
 			oldLeaderId := ck.leaderIds[gid]
-
 			for {
 				srv := ck.make_end(servers[ck.leaderIds[gid]])
 				var reply GetReply
 
 				err := srv.Call("ShardKV.Get", &args, &reply)
+
+				if err != nil {
+					fmt.Println(ck.leaderIds[gid], "-> RPC err:", err)
+				}
+				fmt.Println(ck.leaderIds[gid], "-> ", reply.Err)
+
 				if err == nil && (reply.Err == OK || reply.Err == ErrNoKey) {
 					return reply.Value
 				}
 				if err == nil && (reply.Err == ErrWrongGroup) {
 					break
-				}
-
-				if err != nil {
-					fmt.Println(ck.leaderIds[gid], "-> RPC err:", err)
-				}
-				if reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
-					fmt.Println(ck.leaderIds[gid], "-> reply err:", reply.Err)
 				}
 
 				if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
@@ -113,14 +148,18 @@ func (ck *Clerk) Get(key string) string {
 		}
 		time.Sleep(100 * time.Millisecond)
 		// ask controler for the latest configuration.
-
+		cnt++
+		if cnt > 3 {
+			fmt.Println("服务集群不可用，请稍后重新尝试.....")
+			return "Server error"
+		}
 		ck.config = ck.sm.Query(-1)
 
 	}
 }
 
 // PutAppend shared by Put and Append.
-func (ck *Clerk) PutAppend(key string, value string, op string) {
+func (ck *Clerk) PutAppend(key string, value string, op string) string {
 	args := PutAppendArgs{
 		ClientId: ck.clientId,
 		SeqId:    ck.seqId,
@@ -128,7 +167,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 	args.Key = key
 	args.Value = value
 	args.Op = op
-
+	var cnt = 0
 	for {
 		shard := key2shard(key)
 		gid := ck.config.Shards[shard]
@@ -137,24 +176,24 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 				ck.leaderIds[gid] = 0
 			}
 			oldLeaderId := ck.leaderIds[gid]
-
 			for {
 				srv := ck.make_end(servers[ck.leaderIds[gid]])
 				var reply PutAppendReply
 				err := srv.Call("ShardKV.PutAppend", &args, &reply)
+
+				if err != nil {
+					fmt.Println(ck.leaderIds[gid], "-> RPC err:", err)
+				}
+				fmt.Println(ck.leaderIds[gid], "-> ", reply.Err)
+
 				if err == nil && reply.Err == OK {
 					ck.seqId++
-					return
+					return "OK"
 				}
 				if err == nil && reply.Err == ErrWrongGroup {
 					break
 				}
-				if err != nil {
-					fmt.Println(ck.leaderIds[gid], "-> RPC err:", err)
-				}
-				if reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
-					fmt.Println(ck.leaderIds[gid], "-> reply err:", reply.Err)
-				}
+
 				// ... not ok, or ErrWrongLeader
 				if err != nil || reply.Err == ErrWrongLeader || reply.Err == ErrTimeout {
 					ck.leaderIds[gid] = (ck.leaderIds[gid] + 1) % len(servers)
@@ -166,14 +205,19 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 			}
 		}
 		time.Sleep(100 * time.Millisecond)
+		cnt++
+		if cnt > 3 {
+			fmt.Println("服务集群不可用，请稍后重新尝试.....")
+			return "Server error"
+		}
 		// ask controler for the latest configuration.
 		ck.config = ck.sm.Query(-1)
 	}
 }
 
-func (ck *Clerk) Put(key string, value string) {
-	ck.PutAppend(key, value, "Put")
+func (ck *Clerk) Put(key string, value string) string {
+	return ck.PutAppend(key, value, "Put")
 }
-func (ck *Clerk) Append(key string, value string) {
-	ck.PutAppend(key, value, "Append")
+func (ck *Clerk) Append(key string, value string) string {
+	return ck.PutAppend(key, value, "Append")
 }
